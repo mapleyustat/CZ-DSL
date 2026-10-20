@@ -1,0 +1,48 @@
+coastal_database HangzhouBayCMECSDB {
+    id: "CZDB-HZB-CMECS-001",
+    version: "1.0.0",
+    
+    spatial: HangzhouBay_SRM,
+    temporal: Scenario_2023,
+    tiling: CZDB_TileScheme_250m,
+    cdb_profile: OGC_CDB_1_0,
+    
+    metadata: {
+        title: "杭州湾海岸带CMECS生态单元数据库",
+        region: "Hangzhou Bay, China",
+        provider: "Coastal Systems Lab",
+        source: "https://github.com/NOAA-OCM/cmecs",
+        classification_standard: "CMECS",
+        cmecs_version: "4.0"
+    },
+    
+    layers: {
+        biotic: layer {
+            type: BioticComponentLayer,
+            datasets: {
+                tidal_flat_vegetation: dataset {
+                    feature_class: TidalFlatVegetation,
+                    spatial_resolution: 50.0 * meter,
+                    temporal_resolution: 1.0 * year,
+                    quality_profile: RemoteSensing_QC2,
+                    uncertainty_model: CategoricalConfusionMatrix,
+                    cmecs_unit: CMECS_Biotic_Tidal_Flat_Marsh
+                }
+            }
+        },
+        
+        substrate: layer {
+            type: SubstrateComponentLayer,
+            datasets: {
+                sediment_type_map: dataset {
+                    feature_class: SedimentTypePolygon,
+                    spatial_resolution: 50.0 * meter,
+                    temporal_resolution: 5.0 * year,
+                    quality_profile: SedimentSurvey_QC3,
+                    uncertainty_model: CategoricalConfusionMatrix,
+                    cmecs_unit: CMECS_Substrate_Mud_Sand_Mix
+                }
+            }
+        }
+    }
+}

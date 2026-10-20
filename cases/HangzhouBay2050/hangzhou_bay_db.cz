@@ -1,0 +1,68 @@
+coastal_database HangzhouBayCZDB {
+    id: "CZDB-HZB-001",
+    version: "1.0.0",
+    
+    spatial: HangzhouBay_SRM,
+    temporal: Scenario_2023,
+    tiling: CZDB_TileScheme_250m,
+    cdb_profile: OGC_CDB_1_0,
+    
+    metadata: {
+        title: "杭州湾海岸带综合环境数据库",
+        region: "Hangzhou Bay, China",
+        provider: "Coastal Systems Lab",
+        contact: "czdb@coastal-lab.example",
+        description: "CDB风格的海岸带多圈层环境数据库示例"
+    },
+    
+    layers: {
+        bathymetry: layer {
+            type: BathymetryLayer,
+            cdb_dataset: CDB_D300_S002_T001,
+            cdb_geometry_type: CDB_Terrain_Elevation,
+            datasets: {
+                depth_grid: dataset {
+                    feature_class: GriddedBathymetry,
+                    spatial_resolution: 250.0 * meter,
+                    temporal_resolution: 10.0 * year,
+                    quality_profile: HydroSurvey_QC3,
+                    uncertainty_model: DepthUncertainty_Gaussian,
+                    cmecs_unit: CMECS_Substrate_Unit
+                }
+            }
+        },
+        
+        shoreline: layer {
+            type: ShorelineLayer,
+            cdb_dataset: CDB_D402_S001_T001,
+            cdb_geometry_type: CDB_Vector_Line,
+            datasets: {
+                mean_high_water: dataset {
+                    feature_class: CoastlinePolyline,
+                    spatial_resolution: 25.0 * meter,
+                    temporal_resolution: 5.0 * year,
+                    quality_profile: Cartographic_QC2,
+                    uncertainty_model: LinePosition_Buffer,
+                    cmecs_unit: CMECS_Geoform_Unit
+                }
+            }
+        },
+        
+        landuse: layer {
+            type: LandUseLayer,
+            datasets: {
+                coastal_zone_landuse: dataset {
+                    feature_class: LandUsePolygon,
+                    citygml_version: CityGML_3_0,
+                    citygml_feature_class: cgml_LandUse,
+                    citygml_lod: 1,
+                    spatial_resolution: 50.0 * meter,
+                    temporal_resolution: 1.0 * year,
+                    quality_profile: RemoteSensing_QC2,
+                    uncertainty_model: CategoricalConfusionMatrix,
+                    cmecs_unit: CMECS_Biotic_Unit
+                }
+            }
+        }
+    }
+}

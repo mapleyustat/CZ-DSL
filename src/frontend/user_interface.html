@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CZ-DSL: Scene as a Service IDE</title>
+    <!-- Modern Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Main Styles -->
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --bg-panel: #1e293b;
+            --bg-input: #334155;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-green: #10b981;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --header-height: 48px;
+            --activity-bar-width: 50px;
+            --sidebar-width: 280px;
+            --aux-width: 320px;
+            --status-bar-height: 24px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 1. Header */
+        .header {
+            height: var(--header-height);
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            justify-content: space-between;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .brand i { color: var(--accent-blue); }
+
+        .header-controls {
+            display: flex;
+            gap: 16px;
+        }
+
+        .screenshot-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-icon {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .btn-icon:hover { color: var(--text-main); }
+
+        /* 2. Main Workspace */
+        .workspace {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Activity Bar */
+        .activity-bar {
+            width: var(--activity-bar-width);
+            background-color: var(--bg-dark);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 12px;
+            gap: 24px;
+        }
+
+        .activity-item {
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 20px;
+            position: relative;
+        }
+
+        .activity-item.active { color: var(--text-main); }
+        .activity-item.active::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            height: 24px;
+            width: 3px;
+            background-color: var(--accent-blue);
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* Sidebar (Semantic Navigator) */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .domain-tabs {
+            display: flex;
+            background-color: var(--bg-dark);
+            padding: 2px;
+        }
+
+        .domain-tab {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+        }
+        .domain-tab.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+            background-color: var(--bg-panel);
+        }
+
+        .tree-view {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .tree-node {
+            padding: 6px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .tree-node:hover { background-color: rgba(255,255,255,0.05); color: var(--text-main); }
+        .tree-node i { width: 16px; text-align: center; font-size: 12px; }
+        .tree-node .node-icon { color: var(--accent-blue); }
+        .tree-node.ecological .node-icon { color: var(--accent-green); }
+        .tree-node.socio .node-icon { color: var(--accent-purple); }
+
+        /* Main Editor & Visualizer Area */
+        .main-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #18181b;
+        }
+
+        .tabs-bar {
+            height: 36px;
+            background-color: var(--bg-dark);
+            display: flex;
+            align-items: center;
+        }
+
+        .editor-tab {
+            padding: 0 16px;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            color: var(--text-main);
+        }
+        .editor-tab i { color: var(--accent-blue); }
+
+        .split-view {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+
+        /* Code Editor */
+        .code-pane {
+            width: 40%;
+            background-color: var(--bg-dark);
+            border-right: 1px solid var(--border);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            padding: 16px;
+            overflow-y: auto;
+            height: 100%;
+            max-height: 100%;
+        }
+
+        .line { display: flex; gap: 16px; line-height: 1.5; }
+        .ln { color: #475569; user-select: none; width: 24px; text-align: right; }
+        .code { color: #e2e8f0; }
+        .kwd { color: #c084fc; } /* purple */
+        .str { color: #4ade80; } /* green */
+        .num { color: #f472b6; } /* pink */
+        .typ { color: #60a5fa; } /* blue */
+        .cmt { color: #64748b; font-style: italic; }
+
+        /* 3D Visualizer */
+        .viz-pane {
+            flex: 1;
+            background: linear-gradient(to bottom, #020617, #0f172a);
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 8px;
+            overflow: hidden;
+            min-height: 220px;
+        }
+
+        .d3d-map {
+            width: 100%;
+            max-width: 360px;
+            aspect-ratio: 1 / 1;
+        }
+        .d3d-domain {
+            stroke: #0f172a;
+            stroke-width: 1;
+        }
+        .d3d-coastline {
+            fill: none;
+            stroke: #0f172a;
+            stroke-width: 2;
+        }
+        .d3d-river {
+            fill: none;
+            stroke: #0f172a;
+            stroke-width: 1.4;
+        }
+        .d3d-plume-band {
+            fill: rgba(248, 250, 252, 0.1);
+            stroke: none;
+        }
+        .d3d-plume-band.alt {
+            fill: rgba(226, 232, 240, 0.18);
+        }
+        .d3d-legend-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            fill: #e5e7eb;
+        }
+        .d3d-legend-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            fill: #e5e7eb;
+            font-weight: 500;
+        }
+        .d3d-depth-band-shallow {
+            fill: #facc15;
+        }
+        .d3d-depth-band-midshallow {
+            fill: #22c55e;
+        }
+        .d3d-depth-band-mid {
+            fill: #14b8a6;
+        }
+        .d3d-depth-band-deep {
+            fill: #0ea5e9;
+        }
+        .d3d-depth-band-verydeep {
+            fill: #1d4ed8;
+        }
+        .d3d-depth-band-ultradeep {
+            fill: #312e81;
+        }
+
+        .viz-overlay {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .viz-stat {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+        .viz-stat label { color: var(--text-muted); }
+        .viz-stat span { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+
+        /* Timeline */
+        .timeline-bar {
+            height: 48px;
+            background-color: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+        }
+
+        .play-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--accent-blue);
+            border: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .timeline-slider {
+            flex: 1;
+            height: 4px;
+            background-color: var(--bg-input);
+            border-radius: 2px;
+            position: relative;
+        }
+        .timeline-progress {
+            width: 35%;
+            height: 100%;
+            background-color: var(--accent-blue);
+            border-radius: 2px;
+        }
+        .timeline-thumb {
+            position: absolute;
+            left: 35%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background-color: white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* 3. Neuro-Symbolic Assistant (Right Panel) */
+        .assistant-panel {
+            width: var(--aux-width);
+            background-color: var(--bg-panel);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .assistant-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .assistant-header i { color: var(--accent-purple); }
+
+        .chat-area {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-width: 90%;
+        }
+        .message.user { align-self: flex-end; align-items: flex-end; }
+        .message.ai { align-self: flex-start; }
+
+        .bubble {
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        .message.user .bubble {
+            background-color: var(--accent-blue);
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+        .message.ai .bubble {
+            background-color: var(--bg-input);
+            color: var(--text-main);
+            border-bottom-left-radius: 2px;
+            border: 1px solid var(--border);
+        }
+
+        /* Proposal Card */
+        .proposal-card {
+            background-color: rgba(139, 92, 246, 0.05);
+            border: 1px solid var(--accent-purple);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-main);
+            background-color: rgba(139, 92, 246, 0.2);
+            padding: 8px 12px;
+            font-weight: 600;
+        }
+        .card-body {
+            padding: 12px;
+        }
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: var(--text-muted);
+        }
+        .card-row span:last-child {
+            color: var(--text-main);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .json-preview {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 10px;
+            color: #94a3b8;
+            background: #0f172a;
+            padding: 8px;
+            border-radius: 4px;
+            margin-top: 8px;
+            white-space: pre-wrap;
+            display: none; /* Hidden by default */
+        }
+        .json-preview.visible { display: block; }
+        
+        .card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .btn-card {
+            flex: 1;
+            padding: 6px;
+            border-radius: 4px;
+            border: none;
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-accept { background-color: var(--accent-purple); color: white; }
+        .btn-accept:hover { background-color: #7c3aed; }
+        .btn-reject { background-color: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-reject:hover { border-color: var(--text-muted); color: var(--text-main); }
+
+        /* Code Error Marker */
+        .error-wave {
+            text-decoration: underline wavy #ef4444;
+            text-underline-offset: 4px;
+        }
+
+        .input-area {
+            padding: 16px;
+            border-top: 1px solid var(--border);
+            background-color: var(--bg-dark);
+        }
+        .chat-input {
+            width: 100%;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            color: var(--text-main);
+            font-family: inherit;
+            resize: none;
+            outline: none;
+        }
+        .chat-input:focus { border-color: var(--accent-blue); }
+
+        /* Status Bar */
+        .status-bar {
+            height: var(--status-bar-height);
+            background-color: var(--accent-blue);
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            font-size: 11px;
+            justify-content: space-between;
+        }
+        .status-group { display: flex; gap: 16px; }
+        .status-item { display: flex; gap: 6px; align-items: center; }
+
+        /* Floating 3D Elements (Yangtze Delta Delft3D-inspired view) */
+        .viz-water {
+            position: absolute;
+            bottom: 0; left: 0; right: 0; height: 40%;
+            background: radial-gradient(circle at 30% 20%, rgba(209, 250, 253, 0.7), transparent 55%),
+                        radial-gradient(circle at 70% 60%, rgba(56, 189, 248, 0.6), transparent 55%),
+                        linear-gradient(to top, #0f172a 0%, #0ea5e9 50%, rgba(14,165,233,0.1) 100%);
+            border-top: 1px solid rgba(56, 189, 248, 0.7);
+            overflow: hidden;
+            animation: d3d-water-motion 14s ease-in-out infinite alternate;
+        }
+        .viz-terrain {
+            position: absolute;
+            bottom: 20%; left: 10%; width: 80%; height: 30%;
+            background: linear-gradient(60deg, #022c22 0%, #059669 35%, #a3e635 100%);
+            opacity: 0.45;
+            transform: perspective(800px) rotateX(55deg) skewX(-8deg);
+            border-radius: 26px;
+            box-shadow:
+                0 18px 45px rgba(0,0,0,0.7),
+                0 0 0 1px rgba(15,23,42,0.8);
+            overflow: hidden;
+        }
+        .viz-channel {
+            position: absolute;
+            inset: 18% 15% auto 5%;
+            height: 55%;
+            background: linear-gradient(to right, rgba(15,23,42,0.9), rgba(8,47,73,0.95));
+            border-radius: 40px;
+            box-shadow: 0 0 0 1px rgba(15,23,42,0.9);
+            transform: perspective(900px) rotateX(58deg) skewX(-12deg);
+            overflow: hidden;
+        }
+        .viz-delta-grid {
+            position: absolute;
+            inset: 10% 10% 22% 10%;
+            background-image: 
+                linear-gradient(rgba(148, 163, 184, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.3) 1px, transparent 1px);
+            background-size: 18px 18px;
+            opacity: 0.35;
+            mix-blend-mode: screen;
+            animation: d3d-grid-drift 18s linear infinite;
+        }
+        .viz-wave-crests {
+            position: absolute;
+            inset: 0;
+            background-image:
+                radial-gradient(circle at 0% 80%, rgba(241, 245, 249, 0.5), transparent 55%),
+                radial-gradient(circle at 35% 100%, rgba(248, 250, 252, 0.55), transparent 58%),
+                radial-gradient(circle at 70% 72%, rgba(226, 232, 240, 0.5), transparent 55%);
+            opacity: 0.6;
+            mix-blend-mode: screen;
+            animation: d3d-crests 10s ease-in-out infinite alternate;
+        }
+        .viz-shipping-lane {
+            position: absolute;
+            bottom: 8%;
+            left: -10%;
+            width: 120%;
+            height: 10%;
+            background: linear-gradient(to right, rgba(15,23,42,0.8), rgba(15,23,42,0));
+            border-top: 1px dashed rgba(148,163,184,0.6);
+            transform: skewX(-10deg);
+        }
+        .viz-ship {
+            position: absolute;
+            bottom: 9%;
+            left: -6%;
+            width: 42px;
+            height: 12px;
+            background: linear-gradient(to top, #0f172a, #f97316);
+            border-radius: 10px 10px 6px 6px;
+            box-shadow: 0 0 0 1px rgba(15,23,42,0.9);
+            animation: d3d-ship 22s linear infinite;
+        }
+        .viz-ship::before {
+            content: '';
+            position: absolute;
+            right: 4px;
+            top: -6px;
+            width: 10px;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 4px 4px 0 0;
+        }
+        .viz-ship::after {
+            content: '';
+            position: absolute;
+            inset: 100% auto auto 8px;
+            width: 28px;
+            height: 6px;
+            background: radial-gradient(circle at 0 0, rgba(248, 250, 252,0.7), transparent 70%);
+            opacity: 0.7;
+        }
+        .viz-outfall-plume {
+            position: absolute;
+            top: 30%;
+            left: 55%;
+            width: 26%;
+            height: 35%;
+            background: radial-gradient(circle at 0% 50%, rgba(190, 242, 100, 0.7), transparent 65%);
+            mix-blend-mode: screen;
+            opacity: 0.6;
+            filter: blur(2px);
+            animation: d3d-plume 16s ease-in-out infinite alternate;
+        }
+
+        @keyframes d3d-water-motion {
+            0% { transform: translateX(0) translateY(0); }
+            50% { transform: translateX(-10px) translateY(-6px); }
+            100% { transform: translateX(8px) translateY(-2px); }
+        }
+        @keyframes d3d-grid-drift {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-40px, -20px, 0); }
+        }
+        @keyframes d3d-crests {
+            0% { transform: translateX(0); opacity: 0.55; }
+            100% { transform: translateX(20px); opacity: 0.8; }
+        }
+        @keyframes d3d-ship {
+            0% { transform: translateX(0) translateY(0); }
+            50% { transform: translateX(60vw) translateY(-2px); }
+            100% { transform: translateX(120vw) translateY(0); }
+        }
+        @keyframes d3d-plume {
+            0% { transform: scale(0.8); opacity: 0.4; }
+            100% { transform: scale(1.1); opacity: 0.75; }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .simulation-dashboard {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-panel);
+            border-top: 1px solid var(--border);
+            padding: 16px;
+            gap: 16px;
+        }
+
+        .simulation-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .simulation-title {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .simulation-pipeline {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .pipeline-step {
+            padding: 6px 10px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background-color: #020617;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pipeline-step.active {
+            border-color: var(--accent-blue);
+            background: linear-gradient(135deg, rgba(56,189,248,0.1), rgba(59,130,246,0.15));
+            color: var(--accent-blue);
+        }
+
+        .pipeline-arrow {
+            color: var(--border);
+            font-size: 10px;
+        }
+
+        .simulation-content {
+            display: grid;
+            grid-template-columns: 1.4fr 1.6fr;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .simulation-card {
+            background-color: #020617;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .simulation-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .simulation-card-title {
+            font-weight: 500;
+            color: var(--text-main);
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .checklist-item i {
+            font-size: 10px;
+        }
+
+        .checklist-item.done {
+            color: var(--accent-green);
+        }
+
+        .checklist-item.pending {
+            color: var(--accent-purple);
+        }
+
+        .simulation-log {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--text-muted);
+            background-color: #020617;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 8px;
+            height: 100%;
+            overflow-y: auto;
+            white-space: pre-line;
+        }
+
+        .code-pane.flash {
+            box-shadow: 0 0 0 1px rgba(56,189,248,0.7);
+            transition: box-shadow 0.4s ease-out;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="brand">
+            <i class="fa-solid fa-water"></i>
+            <span>CZ-DSL Studio</span>
+            <span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px;">1.0 Beta</span>
+        </div>
+        <div class="header-controls">
+            <div class="screenshot-controls">
+                <button class="btn-icon" id="btn-capture-overview" title="Capture IDE Overview"><i class="fa-solid fa-camera"></i></button>
+                <button class="btn-icon" id="btn-capture-visualizer" title="Capture Visualizer"><i class="fa-solid fa-cube"></i></button>
+                <button class="btn-icon" id="btn-capture-assistant" title="Capture Assistant Panel"><i class="fa-solid fa-robot"></i></button>
+            </div>
+            <button class="btn-icon"><i class="fa-solid fa-bell"></i></button>
+            <button class="btn-icon"><i class="fa-solid fa-user-circle"></i></button>
+        </div>
+    </header>
+
+    <!-- Workspace -->
+    <div class="workspace">
+        <!-- Activity Bar -->
+        <div class="activity-bar">
+            <div class="activity-item" id="activity-explorer" title="Explorer"><i class="fa-regular fa-folder"></i></div>
+            <div class="activity-item active" id="activity-knowledge" title="Knowledge Base"><i class="fa-solid fa-book-atlas"></i></div>
+            <div class="activity-item" id="activity-simulation" title="Simulation"><i class="fa-solid fa-play"></i></div>
+            <div class="activity-item" style="margin-top: auto;" title="Settings"><i class="fa-solid fa-gear"></i></div>
+        </div>
+
+        <!-- Semantic Navigator (Sidebar) -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span>Domain Knowledge Graph</span>
+                <i class="fa-solid fa-ellipsis"></i>
+            </div>
+            <div class="domain-tabs">
+                <div class="domain-tab">Physical</div>
+                <div class="domain-tab active">Ecological</div>
+                <div class="domain-tab">Socio</div>
+            </div>
+            <div class="tree-view">
+                <!-- CMECS Structure -->
+                <div class="tree-node ecological"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-layer-group node-icon"></i> <span>CMECS Aquatic</span></div>
+                <div style="padding-left: 20px;">
+                    <div class="tree-node ecological"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-leaf node-icon"></i> <span>Wetlands</span></div>
+                    <div style="padding-left: 20px;">
+                         <div class="tree-node ecological"><i class="fa-solid fa-file-code"></i> <span>Salt Marsh (Emergent)</span></div>
+                         <div class="tree-node ecological"><i class="fa-solid fa-file-code"></i> <span>Scrub-Shrub</span></div>
+                         <div class="tree-node ecological"><i class="fa-solid fa-file-code"></i> <span>Forested Wetland</span></div>
+                    </div>
+                    <div class="tree-node ecological"><i class="fa-solid fa-chevron-right"></i> <i class="fa-solid fa-water node-icon"></i> <span>Water Column</span></div>
+                    <div class="tree-node ecological"><i class="fa-solid fa-chevron-right"></i> <i class="fa-solid fa-mountain node-icon"></i> <span>Geoform</span></div>
+                </div>
+                
+                <div class="tree-node ecological" style="margin-top: 8px;"><i class="fa-solid fa-chevron-right"></i> <i class="fa-solid fa-dna node-icon"></i> <span>Biotic Component</span></div>
+                
+                <!-- Separator -->
+                <div style="height: 1px; background: var(--border); margin: 8px 16px;"></div>
+                
+                <div class="sidebar-header" style="padding-top: 0;">
+                    <span>Linked Databases</span>
+                </div>
+                <div class="tree-node"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-database node-icon"></i> <span>Scene Databases</span></div>
+                <div style="padding-left: 20px;">
+                    <div class="tree-node"><i class="fa-solid fa-database"></i> <span>HangzhouBay_EcoDB</span></div>
+                    <div class="tree-node"><i class="fa-solid fa-database"></i> <span>HangzhouBay_PhysicalDB</span></div>
+                </div>
+                <div class="tree-node"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-globe node-icon"></i> <span>OGC / 3D City</span></div>
+                <div style="padding-left: 20px;">
+                    <div class="tree-node"><i class="fa-solid fa-layer-group"></i> <span>OGC CDB Terrain L0-L5</span></div>
+                    <div class="tree-node"><i class="fa-solid fa-city"></i> <span>CityGML Buildings (Hangzhou)</span></div>
+                </div>
+                <div class="tree-node"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-satellite-dish node-icon"></i> <span>Remote Sensing</span></div>
+                <div style="padding-left: 20px;">
+                    <div class="tree-node"><i class="fa-solid fa-database"></i> <span>Sentinel-2_L2A</span></div>
+                    <div class="tree-node"><i class="fa-solid fa-database"></i> <span>Landsat-8_OLI</span></div>
+                    <div class="tree-node"><i class="fa-solid fa-mountain-sun"></i> <span>SRTM_DEM_30m</span></div>
+                </div>
+                <div class="tree-node"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-diagram-project node-icon"></i> <span>Simulation Models</span></div>
+                <div style="padding-left: 20px;">
+                    <div class="tree-node"><i class="fa-solid fa-wave-square"></i> <span>FVCOM_HangzhouBay_2050.nc</span></div>
+                    <div class="tree-node"><i class="fa-solid fa-seedling"></i> <span>SLAMM_Wetland_Transition_2050</span></div>
+                </div>
+                <div class="tree-node"><i class="fa-solid fa-chevron-down"></i> <i class="fa-solid fa-network-wired node-icon"></i> <span>Knowledge / Codes</span></div>
+                <div style="padding-left: 20px;">
+                    <div class="tree-node"><i class="fa-solid fa-code-branch"></i> <span>CMECS_Habitat_Ontology</span></div>
+                    <div class="tree-node"><i class="fa-solid fa-code-branch"></i> <span>EDCS_Code_Sets</span></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Editor & Visualizer -->
+        <main class="main-area">
+            <div class="tabs-bar">
+                <div class="editor-tab">
+                    <i class="fa-solid fa-cube"></i>
+                    <span>YangtzeDelta_2050.scene</span>
+                    <i class="fa-solid fa-xmark" style="font-size: 10px; margin-left: 8px;"></i>
+                </div>
+            </div>
+            
+            <div class="split-view" id="ide-split-view">
+                <!-- Code Editor -->
+                <div class="code-pane">
+                    <div class="line"><span class="ln"> 1</span><span class="code"><span class="kwd">scenario</span> <span class="typ">YangtzeDelta_2050</span> {</span></div>
+                    <div class="line"><span class="ln"> 2</span><span class="code">  <span class="cmt">// Integrated coastal digital twin for the Yangtze River Delta</span></span></div>
+                    <div class="line"><span class="ln"> 3</span><span class="code">  <span class="cmt">// 长三角河口-近岸-城市群一体化场景</span></span></div>
+                    <div class="line"><span class="ln"> 4</span><span class="code"></span></div>
+                    <div class="line"><span class="ln"> 5</span><span class="code">  <span class="kwd">time_horizon</span>: <span class="num">2050</span>;</span></div>
+                    <div class="line"><span class="ln"> 6</span><span class="code">  <span class="kwd">spatial_ref</span>: <span class="typ">SRM_4326</span>;</span></div>
+                    <div class="line"><span class="ln"> 7</span><span class="code">  <span class="kwd">local_crs</span>: <span class="typ">SRM_4490_China_Geodetic</span>;</span></div>
+                    <div class="line"><span class="ln"> 8</span><span class="code">  <span class="kwd">vertical_datum</span>: <span class="typ">China_1985_Height</span>;</span></div>
+                    <div class="line"><span class="ln"> 9</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">10</span><span class="code">  <span class="kwd">domains</span> {</span></div>
+                    <div class="line"><span class="ln">11</span><span class="code">    <span class="kwd">physical_ocean</span>: <span class="typ">Ocean</span>;</span></div>
+                    <div class="line"><span class="ln">12</span><span class="code">    <span class="kwd">atmosphere</span>: <span class="typ">大气圈</span>;</span></div>
+                    <div class="line"><span class="ln">13</span><span class="code">    <span class="kwd">morphodynamics</span>: <span class="typ">SedimentMorphology</span>;</span></div>
+                    <div class="line"><span class="ln">14</span><span class="code">    <span class="kwd">ecology</span>: <span class="typ">CoastalEcosystem</span>;</span></div>
+                    <div class="line"><span class="ln">15</span><span class="code">    <span class="kwd">socio_economic</span>: <span class="typ">CoastalSocioEconomic</span>;</span></div>
+                    <div class="line"><span class="ln">16</span><span class="code">    <span class="kwd">infrastructure</span>: <span class="typ">CriticalInfraNetwork</span>;</span></div>
+                    <div class="line"><span class="ln">17</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">18</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">19</span><span class="code">  <span class="kwd">coordinate_systems</span> {</span></div>
+                    <div class="line"><span class="ln">20</span><span class="code">    <span class="kwd">horizontal</span>: [<span class="typ">SRM_4326</span>, <span class="typ">SRM_4490_China_Geodetic</span>, <span class="typ">UTM_Zone_51N</span>];</span></div>
+                    <div class="line"><span class="ln">21</span><span class="code">    <span class="kwd">vertical</span>: [<span class="typ">China_1985_Height</span>, <span class="typ">MeanSeaLevel_Yangshan</span>];</span></div>
+                    <div class="line"><span class="ln">22</span><span class="code">    <span class="kwd">bathymetry_grid</span>: <span class="typ">Curvilinear_Grid_Delft3D</span>;</span></div>
+                    <div class="line"><span class="ln">23</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">24</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">25</span><span class="code">  <span class="kwd">drivers</span> {</span></div>
+                    <div class="line"><span class="ln">26</span><span class="code">    <span class="kwd">sea_level_rise</span>: <span class="num">0.6</span> * <span class="typ">meter</span>;</span></div>
+                    <div class="line"><span class="ln">27</span><span class="code">    <span class="kwd">river_discharge</span>: <span class="num">120000</span> * <span class="typ">m3_per_s</span>;</span></div>
+                    <div class="line"><span class="ln">28</span><span class="code">    <span class="kwd">typhoon_scenarios</span>: [<span class="str">"Typhoon_Fitow_Analog"</span>, <span class="str">"Synthetic_Category_4"</span>];</span></div>
+                    <div class="line"><span class="ln">29</span><span class="code">    <span class="kwd">land_subsidence_rate</span>: <span class="num">10</span> * <span class="typ">mm_per_year</span>;</span></div>
+                    <div class="line"><span class="ln">30</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">31</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">32</span><span class="code">  <span class="kwd">data_sources</span> {</span></div>
+                    <div class="line"><span class="ln">33</span><span class="code">    <span class="kwd">cdb</span>: {</span></div>
+                    <div class="line"><span class="ln">34</span><span class="code">      <span class="kwd">terrain</span>: <span class="typ">CDB_D300_S002_T001</span>;</span></div>
+                    <div class="line"><span class="ln">35</span><span class="code">      <span class="kwd">shoreline</span>: <span class="typ">CDB_D402_S001_T001</span>;</span></div>
+                    <div class="line"><span class="ln">36</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">37</span><span class="code">    <span class="kwd">citygml</span>: {</span></div>
+                    <div class="line"><span class="ln">38</span><span class="code">      <span class="kwd">ports</span>: <span class="typ">CityGML_3_0</span> &lt;- <span class="str">"Shanghai_Ningbo_Ports.gml"</span>;</span></div>
+                    <div class="line"><span class="ln">39</span><span class="code">      <span class="kwd">urban_areas</span>: <span class="typ">cgml_LandUse</span>;</span></div>
+                    <div class="line"><span class="ln">40</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">41</span><span class="code">    <span class="kwd">remote_sensing</span>: {</span></div>
+                    <div class="line"><span class="ln">42</span><span class="code">      <span class="kwd">sentinel2</span>: <span class="typ">Sentinel_2_L2A_Mosaic_10m</span>;</span></div>
+                    <div class="line"><span class="ln">43</span><span class="code">      <span class="kwd">landsat8</span>: <span class="typ">Landsat_8_OLI_30m</span>;</span></div>
+                    <div class="line"><span class="ln">44</span><span class="code">      <span class="kwd">sar_flood</span>: <span class="typ">Sentinel_1_SAR_FloodMask</span>;</span></div>
+                    <div class="line"><span class="ln">45</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">46</span><span class="code">    <span class="kwd">in_situ</span>: {</span></div>
+                    <div class="line"><span class="ln">47</span><span class="code">      <span class="kwd">tide_gauges</span>: <span class="typ">GaugeNetwork</span> &lt;- <span class="str">"Yangtze_Tide_Gauges.csv"</span>;</span></div>
+                    <div class="line"><span class="ln">48</span><span class="code">      <span class="kwd">sediment_cores</span>: <span class="typ">SedimentCoreDB</span>;</span></div>
+                    <div class="line"><span class="ln">49</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">50</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">51</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">52</span><span class="code">  <span class="kwd">models</span> {</span></div>
+                    <div class="line"><span class="ln">53</span><span class="code">    <span class="kwd">hydro</span>: <span class="typ">Delft3D_FLOW</span> {</span></div>
+                    <div class="line"><span class="ln">54</span><span class="code">      <span class="kwd">grid</span>: <span class="typ">Curvilinear_Grid_Delft3D</span>;</span></div>
+                    <div class="line"><span class="ln">55</span><span class="code">      <span class="kwd">open_boundaries</span>: [<span class="typ">East_China_Sea</span>, <span class="typ">Qiantang_River</span>];</span></div>
+                    <div class="line"><span class="ln">56</span><span class="code">      <span class="kwd">forcing</span>: {<span class="kwd">tide</span>, <span class="kwd">wind</span>, <span class="kwd">river</span>};</span></div>
+                    <div class="line"><span class="ln">57</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">58</span><span class="code">    <span class="kwd">waves</span>: <span class="typ">Delft3D_WAVE</span> {</span></div>
+                    <div class="line"><span class="ln">59</span><span class="code">      <span class="kwd">coupled_to</span>: <span class="typ">hydro</span>;</span></div>
+                    <div class="line"><span class="ln">60</span><span class="code">      <span class="kwd">spectra</span>: <span class="typ">JONSWAP</span>;</span></div>
+                    <div class="line"><span class="ln">61</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">62</span><span class="code">    <span class="kwd">morphology</span>: <span class="typ">Delft3D_MOR</span> {</span></div>
+                    <div class="line"><span class="ln">63</span><span class="code">      <span class="kwd">timescale_factor</span>: <span class="num">10</span>;</span></div>
+                    <div class="line"><span class="ln">64</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">65</span><span class="code">    <span class="kwd">ecosystem</span>: <span class="typ">WetlandSuccessionModel</span>;</span></div>
+                    <div class="line"><span class="ln">66</span><span class="code">    <span class="kwd">risk</span>: <span class="typ">CoastalRiskAssessment</span>;</span></div>
+                    <div class="line"><span class="ln">67</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">68</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">69</span><span class="code">  <span class="kwd">knowledge_rules</span> {</span></div>
+                    <div class="line"><span class="ln">70</span><span class="code">    <span class="kwd">cmecs_mapping</span>: <span class="typ">CMECS_Habitat_Unit</span> &lt;- <span class="typ">Sentinel_2_L2A_Mosaic_10m</span>;</span></div>
+                    <div class="line"><span class="ln">71</span><span class="code">    <span class="kwd">edcs_codes</span>: [<span class="typ">EDCS_DRY_DOCK</span>, <span class="typ">EDCS_CONTAINER_TERMINAL</span>, <span class="typ">EDCS_WETLAND</span>];</span></div>
+                    <div class="line"><span class="ln">72</span><span class="code">    <span class="kwd">regulations</span>: {</span></div>
+                    <div class="line"><span class="ln">73</span><span class="code">      <span class="kwd">setback_line</span>: <span class="num">500</span> * <span class="typ">meter</span>;</span></div>
+                    <div class="line"><span class="ln">74</span><span class="code">      <span class="kwd">no_build_zone</span>: <span class="typ">CMECS_Wetland_Unit</span>;</span></div>
+                    <div class="line"><span class="ln">75</span><span class="code">    };</span></div>
+                    <div class="line"><span class="ln">76</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">77</span><span class="code"></span></div>
+                    <div class="line"><span class="ln">78</span><span class="code">  <span class="kwd">outputs</span> {</span></div>
+                    <div class="line"><span class="ln">79</span><span class="code">    <span class="kwd">flood_depth_maps</span>: <span class="typ">RasterSeries</span>;</span></div>
+                    <div class="line"><span class="ln">80</span><span class="code">    <span class="kwd">wetland_transition</span>: <span class="typ">CMECS_Change_Map</span>;</span></div>
+                    <div class="line"><span class="ln">81</span><span class="code">    <span class="kwd">port_downtime</span>: <span class="typ">TimeSeries</span>;</span></div>
+                    <div class="line"><span class="ln">82</span><span class="code">    <span class="kwd">population_exposed</span>: <span class="typ">Uncertain<Real></span>;</span></div>
+                    <div class="line"><span class="ln">83</span><span class="code">  }</span></div>
+                    <div class="line"><span class="ln">84</span><span class="code">}</span></div>
+                </div>
+
+                <!-- 3D Visualizer -->
+                <div class="viz-pane" id="cosml-visualizer">
+                    <svg class="d3d-map" viewBox="0 0 400 400">
+                        <defs>
+                            <clipPath id="d3d-domain-clip">
+                                <path d="M 200 20 A 180 180 0 0 1 380 200 A 180 180 0 0 1 200 380 L 200 200 Z" />
+                            </clipPath>
+                        </defs>
+                        <g clip-path="url(#d3d-domain-clip)">
+                            <rect x="200" y="0" width="200" height="400" class="d3d-depth-band-shallow" />
+                            <rect x="220" y="0" width="180" height="400" class="d3d-depth-band-midshallow" />
+                            <rect x="250" y="0" width="150" height="400" class="d3d-depth-band-mid" />
+                            <rect x="280" y="0" width="120" height="400" class="d3d-depth-band-deep" />
+                            <rect x="310" y="0" width="90" height="400" class="d3d-depth-band-verydeep" />
+                            <rect x="340" y="0" width="60" height="400" class="d3d-depth-band-ultradeep" />
+                            <g>
+                                <path d="M 200 210 C 230 215 255 225 280 245 C 305 265 325 290 350 320" class="d3d-plume-band" />
+                                <path d="M 200 210 C 235 205 265 210 295 225 C 325 240 345 260 370 290" class="d3d-plume-band alt" />
+                                <path d="M 200 210 C 225 225 245 240 265 260 C 285 280 300 300 320 325" class="d3d-plume-band" />
+                            </g>
+                        </g>
+                        <path d="M 80 120 C 120 140 150 165 170 190 C 190 215 200 235 200 260" class="d3d-coastline" />
+                        <path d="M 80 120 C 110 135 135 155 150 175 C 165 195 180 220 190 255" class="d3d-river" />
+                        <path d="M 90 130 C 120 150 140 170 155 190" class="d3d-river" />
+                        <g>
+                            <rect x="36" y="260" width="10" height="70" class="d3d-depth-band-shallow" />
+                            <rect x="46" y="260" width="10" height="70" class="d3d-depth-band-midshallow" />
+                            <rect x="56" y="260" width="10" height="70" class="d3d-depth-band-mid" />
+                            <rect x="66" y="260" width="10" height="70" class="d3d-depth-band-deep" />
+                            <rect x="76" y="260" width="10" height="70" class="d3d-depth-band-verydeep" />
+                            <rect x="86" y="260" width="10" height="70" class="d3d-depth-band-ultradeep" />
+                            <text x="36" y="252" class="d3d-legend-title">Depth (m)</text>
+                            <text x="100" y="268" class="d3d-legend-label">0</text>
+                            <text x="100" y="283" class="d3d-legend-label">5</text>
+                            <text x="100" y="298" class="d3d-legend-label">10</text>
+                            <text x="100" y="313" class="d3d-legend-label">20</text>
+                            <text x="100" y="328" class="d3d-legend-label">30+</text>
+                        </g>
+                    </svg>
+
+                    <div class="viz-overlay">
+                        <div class="viz-stat"><label>Sim Time</label><span>2050-07-25 14:00</span></div>
+                        <div class="viz-stat"><label>Water Level</label><span style="color: #fca5a5;">+4.82m (Warning)</span></div>
+                        <div class="viz-stat"><label>Inundation</label><span>124.5 km²</span></div>
+                        <div class="viz-stat"><label>FPS</label><span>60</span></div>
+                    </div>
+                    
+                    <!-- Playback Controls Overlay -->
+                    <div style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 20px; backdrop-filter: blur(4px);">
+                        <i class="fa-solid fa-backward-step" style="color: white; cursor: pointer;"></i>
+                        <i class="fa-solid fa-pause" style="color: white; cursor: pointer;"></i>
+                        <i class="fa-solid fa-forward-step" style="color: white; cursor: pointer;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline -->
+            <div class="timeline-bar" id="ide-timeline">
+                <span style="font-size: 11px; font-family: 'JetBrains Mono'; color: var(--text-muted); width: 60px;">T+14h</span>
+                
+                <div class="timeline-slider">
+                    <!-- Tick Marks -->
+                    <div style="position: absolute; top: 0; left: 0; right: 0; height: 100%; display: flex; justify-content: space-between; pointer-events: none;">
+                        <div style="width: 1px; height: 4px; background: #475569;"></div>
+                        <div style="width: 1px; height: 4px; background: #475569;"></div>
+                        <div style="width: 1px; height: 4px; background: #475569;"></div>
+                        <div style="width: 1px; height: 4px; background: #475569;"></div>
+                        <div style="width: 1px; height: 4px; background: #475569;"></div>
+                    </div>
+                    <div class="timeline-progress" style="width: 35%;"></div>
+                    <div class="timeline-thumb"></div>
+                </div>
+                
+                <span style="font-size: 11px; font-family: 'JetBrains Mono'; color: var(--text-muted); width: 60px; text-align: right;">T+72h</span>
+                <i class="fa-solid fa-expand" style="color: var(--text-muted); cursor: pointer; margin-left: 8px;"></i>
+            </div>
+
+            <div class="simulation-dashboard hidden" id="simulation-dashboard">
+                <div class="simulation-header">
+                    <div class="simulation-title">
+                        <i class="fa-solid fa-play-circle"></i>
+                        <span style="margin-left: 6px;">Simulation Pipeline: Hangzhou Bay 2050 Integrated Scenario</span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted);">
+                        Scenario ID: HZ_2050_Integrated
+                    </div>
+                </div>
+                <div class="simulation-pipeline">
+                    <div class="pipeline-step active">
+                        <i class="fa-solid fa-database"></i>
+                        <span>Data Ingestion</span>
+                    </div>
+                    <div class="pipeline-arrow">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </div>
+                    <div class="pipeline-step active">
+                        <i class="fa-solid fa-code"></i>
+                        <span>Scene Compilation</span>
+                    </div>
+                    <div class="pipeline-arrow">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </div>
+                    <div class="pipeline-step active">
+                        <i class="fa-solid fa-diagram-project"></i>
+                        <span>Model Drivers</span>
+                    </div>
+                    <div class="pipeline-arrow">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </div>
+                    <div class="pipeline-step active">
+                        <i class="fa-solid fa-spinner"></i>
+                        <span>Execution</span>
+                    </div>
+                    <div class="pipeline-arrow">
+                        <i class="fa-solid fa-angle-right"></i>
+                    </div>
+                    <div class="pipeline-step active">
+                        <i class="fa-solid fa-chart-area"></i>
+                        <span>Post-processing</span>
+                    </div>
+                </div>
+                <div class="simulation-content">
+                    <div class="simulation-card">
+                        <div class="simulation-card-header">
+                            <div class="simulation-card-title">Reproducibility Checklist</div>
+                            <div style="font-size: 10px; color: var(--accent-blue);">Hangzhou Bay 2050</div>
+                        </div>
+                        <div class="checklist-item done">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <span>All input datasets versioned with DOIs and spatial reference metadata</span>
+                        </div>
+                        <div class="checklist-item done">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <span>CZ-DSL scene file archived with Git commit hash and compiler version</span>
+                        </div>
+                        <div class="checklist-item done">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <span>FVCOM and SLAMM driver configurations stored as structured CZ-DSL blocks</span>
+                        </div>
+                        <div class="checklist-item done">
+                            <i class="fa-solid fa-check-circle"></i>
+                            <span>Simulation parameters logged as JSON, linked back to scene identifiers</span>
+                        </div>
+                        <div class="checklist-item pending">
+                            <i class="fa-solid fa-circle-notch"></i>
+                            <span>Independent rerun on external cluster with identical outputs within tolerance</span>
+                        </div>
+                    </div>
+                    <div class="simulation-card">
+                        <div class="simulation-card-header">
+                            <div class="simulation-card-title">Execution Log</div>
+                            <div style="font-size: 10px; color: var(--text-muted);">Last run: 2025-07-25 03:12 UTC</div>
+                        </div>
+                        <div class="simulation-log">
+CZ-DSL> load_scene HangzhouBay_2050_Integrated
+CZ-DSL> validate_scene --strict
+  [ok] SRM/EDCS references resolved
+  [ok] CMECS classifications validated
+  [ok] Dimensional analysis passed
+
+CZ-DSL> compile_scene --targets=fvcom,slamm
+  [ok] FVCOM driver generated
+  [ok] SLAMM driver generated
+
+CZ-DSL> run fvcom --horizon=72h
+  [ok] 72 time steps completed
+
+CZ-DSL> run slamm --horizon=2050
+  [ok] habitat transition tables updated
+
+CZ-DSL> export_results --to=HangzhouBay_2050_Report
+  [ok] storm surge metrics and habitat loss indicators exported
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Neuro-Symbolic Assistant (Right Panel) -->
+        <aside class="assistant-panel" id="cosml-assistant">
+            <div class="assistant-header">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <i class="fa-solid fa-sparkles"></i>
+                    <span>CZ-DSL Assistant</span>
+                </div>
+                <i class="fa-solid fa-terminal" style="font-size: 12px; color: var(--text-muted); cursor: pointer;" title="Toggle JSON-RPC Debug"></i>
+            </div>
+            <div class="chat-area">
+                <!-- History -->
+                <div class="message user">
+                    <div class="bubble">Simulate an integrated 2050 scenario for the Yangtze River Delta with 0.6m SLR, enhanced river discharge and compound flooding.</div>
+                </div>
+                <div class="message ai">
+                    <div class="bubble">I've analyzed your intent. I recommend initializing a YangtzeDelta_2050 digital twin scenario, coupling Delft3D FLOW/WAVE/MOR with coastal ecosystem and risk models.</div>
+                    
+                    <div class="proposal-card">
+                        <div class="card-header">
+                            <span><i class="fa-solid fa-code-branch"></i> Proposal #1024</span>
+                            <span style="background: var(--accent-purple); color: white; padding: 1px 4px; border-radius: 2px; font-size: 9px;">CONFIDENCE: 98%</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="card-row"><span>Scenario ID</span><span>YZD_2050_Integrated</span></div>
+                            <div class="card-row"><span>Region</span><span>Yangtze River Delta</span></div>
+                            <div class="card-row"><span>Time Horizon</span><span>2050 (SSP2-4.5)</span></div>
+                            <div class="card-row"><span>Physical Drivers</span><span>SLR +0.6m, discharge, subsidence</span></div>
+                            
+                            <div class="json-preview visible">
+{
+  "intent": "create_integrated_scenario",
+  "params": {
+    "spatial_ref": "SRM_4326",
+    "local_crs": "SRM_4490_China_Geodetic",
+    "vertical_datum": "China_1985_Height",
+    "drivers": ["SLR_0.6m", "Yangtze_Discharge", "Compound_Flooding"]
+  }
+}</div>
+                        </div>
+                        <div class="card-actions">
+                            <button class="btn-card btn-accept" id="btn-apply-editor"><i class="fa-solid fa-check"></i> Apply to Editor</button>
+                            <button class="btn-card btn-reject"><i class="fa-solid fa-pen"></i> Refine</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="message user">
+                    <div class="bubble">Show me compound-flooding hotspots along the Yangtze Delta coastline.</div>
+                </div>
+                <div class="message ai">
+                    <div class="bubble">Highlighting CMECS wetland and EDCS port facilities in the Yangtze Delta. I've identified high-risk zones where extreme water levels, subsidence and urban exposure co-occur.</div>
+                </div>
+            </div>
+            <div class="input-area">
+                <input type="text" class="chat-input" placeholder="Ask CZ-DSL to modify the scene...">
+            </div>
+        </aside>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+        <div class="status-group">
+            <div class="status-item"><i class="fa-solid fa-code-commit"></i> <span>master*</span></div>
+            <div class="status-item" style="color: #fca5a5;"><i class="fa-solid fa-circle-xmark"></i> <span>1 Error</span></div>
+            <div class="status-item"><i class="fa-solid fa-triangle-exclamation" style="color: #fcd34d;"></i> <span>2 Warnings</span></div>
+        </div>
+        <div class="status-group">
+            <div class="status-item">LSP: Active (12ms)</div>
+            <div class="status-item">CZ-DSL Compiler v1.2.4</div>
+            <div class="status-item"><i class="fa-solid fa-server"></i> <span>Connected</span></div>
+        </div>
+    </footer>
+
+<script>
+    (function() {
+        function capture(element, filename) {
+            if (!element) return;
+            html2canvas(element, {
+                backgroundColor: '#0f172a',
+                useCORS: true,
+                scale: window.devicePixelRatio || 2
+            }).then(function(canvas) {
+                var link = document.createElement('a');
+                link.download = filename;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            var btnOverview = document.getElementById('btn-capture-overview');
+            var btnVisualizer = document.getElementById('btn-capture-visualizer');
+            var btnAssistant = document.getElementById('btn-capture-assistant');
+            var activityExplorer = document.getElementById('activity-explorer');
+            var activityKnowledge = document.getElementById('activity-knowledge');
+            var activitySimulation = document.getElementById('activity-simulation');
+            var splitView = document.getElementById('ide-split-view');
+            var timeline = document.getElementById('ide-timeline');
+            var simulationDashboard = document.getElementById('simulation-dashboard');
+            var btnApply = document.getElementById('btn-apply-editor');
+            var codePane = document.querySelector('.code-pane');
+
+            if (btnOverview) {
+                btnOverview.addEventListener('click', function() {
+                    capture(document.body, 'cosml_ide_overview.png');
+                });
+            }
+
+            if (btnVisualizer) {
+                btnVisualizer.addEventListener('click', function() {
+                    var viz = document.getElementById('cosml-visualizer');
+                    capture(viz, 'cosml_ide_visualizer.png');
+                });
+            }
+
+            if (btnAssistant) {
+                btnAssistant.addEventListener('click', function() {
+                    var assistant = document.getElementById('cosml-assistant');
+                    capture(assistant, 'cosml_ide_assistant.png');
+                });
+            }
+
+            function setActiveActivity(target) {
+                var items = document.querySelectorAll('.activity-bar .activity-item');
+                items.forEach(function(item) {
+                    item.classList.remove('active');
+                });
+                if (target) {
+                    target.classList.add('active');
+                }
+            }
+
+            if (activitySimulation && splitView && timeline && simulationDashboard) {
+                activitySimulation.addEventListener('click', function() {
+                    setActiveActivity(activitySimulation);
+                    splitView.classList.add('hidden');
+                    timeline.classList.add('hidden');
+                    simulationDashboard.classList.remove('hidden');
+                });
+            }
+
+            if (activityKnowledge && splitView && timeline && simulationDashboard) {
+                activityKnowledge.addEventListener('click', function() {
+                    setActiveActivity(activityKnowledge);
+                    splitView.classList.remove('hidden');
+                    timeline.classList.remove('hidden');
+                    simulationDashboard.classList.add('hidden');
+                });
+            }
+
+            if (activityExplorer && splitView && timeline && simulationDashboard) {
+                activityExplorer.addEventListener('click', function() {
+                    setActiveActivity(activityExplorer);
+                    splitView.classList.remove('hidden');
+                    timeline.classList.remove('hidden');
+                    simulationDashboard.classList.add('hidden');
+                });
+            }
+
+            if (btnApply && codePane) {
+                btnApply.addEventListener('click', function() {
+                    codePane.classList.add('flash');
+                    codePane.scrollTo({ top: 0, behavior: 'smooth' });
+                    setTimeout(function() {
+                        codePane.classList.remove('flash');
+                    }, 400);
+                });
+            }
+        });
+    })();
+</script>
+</body>
+</html>

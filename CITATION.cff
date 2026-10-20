@@ -1,0 +1,45 @@
+cff-version: 1.2.0
+message: "If you use CZ-DSL, the toolchain, or the New York Harbor benchmark case, please cite both the paper and the software release."
+title: "CZ-DSL: A Plug-in Atomic Domain-Specific Language with Geometric-Algebra Reversibility for Coastal-Zone Geographic Information Modeling"
+type: software
+authors:
+  - family-names: Yu
+    given-names: Zhaoyuan
+    affiliation: "Nanjing Normal University, Nanjing, China"
+    email: yuzhaoyuan@njnu.edu.cn
+    orcid: ""   # TODO: add the ORCID iD before release
+repository-code: "https://github.com/mapleyustat/CZ-DSL"
+url: "https://github.com/mapleyustat/CZ-DSL"
+abstract: >-
+  CZ-DSL is a domain-specific language for coastal-zone complex systems. It
+  organises 43 atomic components into seven plug-in groups and a four-level
+  hierarchical classification, and integrates heterogeneous coastal data with its
+  spatio-temporal datum, geometry, feature attributes, spatio-temporal processes
+  and governing mechanisms into a single structured scenario that supports
+  retrieval, query, computation and cross-application switching. The repository
+  contains the language specification, the XSD and JSON Schema, a Python
+  toolchain (scene builder, validator, compiler), a Rust frontend under
+  development, and a fully reproducible real-data benchmark case for New York
+  Harbor.
+keywords:
+  - coastal zone
+  - domain-specific language
+  - geospatial data integration
+  - geometric algebra
+  - interoperability
+  - CMECS
+  - EDCS
+  - digital twin
+license: MIT
+version: "2.0.0"
+date-released: "2026-03-12"
+preferred-citation:
+  type: article
+  title: "CZ-DSL: A Plug-in Atomic Domain-Specific Language with Geometric-Algebra Reversibility for Coastal-Zone Geographic Information Modeling"
+  authors:
+    - family-names: Yu
+      given-names: Zhaoyuan
+      affiliation: "Nanjing Normal University, Nanjing, China"
+  journal: "ISPRS Journal of Photogrammetry and Remote Sensing"
+  year: 2026
+  notes: "Manuscript in submission. Update volume, issue and DOI on acceptance."

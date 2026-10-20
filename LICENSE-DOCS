@@ -1,0 +1,40 @@
+# Documentation and data licence
+
+The source code in this repository (`tools/`, `src/`, `reproduce_all.py`,
+`verification_tests/`, and the build scripts) is released under the MIT License
+in `LICENSE`.
+
+The **documentation, specification, schemas, figures and derived data** are
+released under the **Creative Commons Attribution 4.0 International** licence
+(CC BY 4.0): <https://creativecommons.org/licenses/by/4.0/>
+
+This covers, in particular:
+
+- `docs/` — language specification, design principles, formal verification
+  notes, engineering protocol, tool test report, and the manuscript source
+- `docs/*.xsd`, `docs/*.schema.json` — the XSD and JSON Schema
+- `cases/` — scenario files and derived results
+- figures generated from them
+
+You are free to share and adapt this material for any purpose, provided you give
+appropriate credit, link to the licence, and indicate if changes were made.
+
+## Third-party data
+
+The New York Harbor benchmark case study consumes third-party datasets that
+carry their own terms. They are **not** redistributed here; `tools/nyh_case/`
+downloads or expects them under `data/webdata/`. See `data/webdata/README.md`
+and the per-source notices:
+
+| Source | Provider | Terms |
+|---|---|---|
+| Copernicus DEM GLO-90 | ESA / Copernicus | Copernicus DEM licence, free and open |
+| NYOFS | NOAA CO-OPS | US Government work, public domain |
+| CO-OPS tide gauges | NOAA | US Government work, public domain |
+| PSMSL RLR | PSMSL / IOC | Free for research with attribution |
+| NOAA STAR altimetry | NOAA | US Government work, public domain |
+| CoDEC / GTSR surge | NERC / EDF | See provider terms |
+| JRC Global Surface Water | European Commission JRC | Free with attribution |
+| GTF30 tidal flats | Murray et al. / UNSW | See provider terms |
+| GHSL GHS-POP | European Commission JRC | Free with attribution |
+| Marine Regions World EEZ v12 | Flanders Marine Institute | CC BY 4.0 |

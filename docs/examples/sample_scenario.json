@@ -1,0 +1,575 @@
+{
+  "id": "HZB-2050-SLR",
+  "version": "2.0",
+  "metadata": {
+    "title": "杭州湾2050海平面上升综合评估情景",
+    "description": "杭州湾海岸带2050年海平面上升情景分析，涵盖潮汐、盐沼湿地、海堤、土地利用、政策包及LLM辅助SLR预测",
+    "author": "Coastal Systems Lab",
+    "created": "2026-08-14T08:00:00Z",
+    "version": "2.0.0",
+    "tags": ["Hangzhou Bay", "Sea Level Rise", "Salt Marsh", "Seawall", "Policy Package"]
+  },
+  "spatialReference": {
+    "name": "HangzhouBay_SRM",
+    "srmMapping": "SRM_GEODETIC_WGS_1984",
+    "epsg": 4326,
+    "wkt": "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433]]",
+    "dynamicParameters": {
+      "epoch": "2025.0",
+      "tidalDatum": "mean_sea_level",
+      "geoidModel": "EGM2008",
+      "origin": { "x": 121.0, "y": 30.5, "z": 0.0 }
+    }
+  },
+  "temporalReference": {
+    "calendar": "Gregorian",
+    "epoch": "2025-01-01T00:00:00Z",
+    "resolution": { "value": "1.0 * hour", "siTime": 1 },
+    "timeZone": "UTC"
+  },
+  "granularity": {
+    "level": "CoastalCell"
+  },
+
+  "DataAccess": {
+    "DataSource": [
+      {
+        "id": "ds-tide-gauge",
+        "version": "1.0.0",
+        "protocol": "OPeNDAP",
+        "endpoint": "https://data.coastal-lab.example/opendap/hzb/tide_gauge",
+        "format": "NetCDF-4"
+      },
+      {
+        "id": "ds-satellite-altimetry",
+        "version": "1.0.0",
+        "protocol": "HTTPS",
+        "endpoint": "https://data.coastal-lab.example/altimetry/hzb",
+        "format": "GeoTIFF"
+      },
+      {
+        "id": "ds-landuse",
+        "version": "1.0.0",
+        "protocol": "WFS",
+        "endpoint": "https://gis.coastal-lab.example/wfs/landuse_2025",
+        "format": "GeoJSON"
+      }
+    ],
+    "CoordinateReference": [
+      {
+        "id": "crs-hzb-utm",
+        "version": "1.0.0",
+        "crs": {
+          "name": "WGS84_UTM_Zone_51N",
+          "srmMapping": "SRM_EQUIDISTANT_CYLINDRICAL",
+          "epsg": 32651,
+          "dynamicParameters": {
+            "tidalDatum": "mean_high_water"
+          }
+        }
+      }
+    ],
+    "TemporalReference": [
+      {
+        "id": "tr-scenario-2050",
+        "version": "1.0.0",
+        "temporal": {
+          "calendar": "Gregorian",
+          "epoch": "2025-01-01T00:00:00Z",
+          "resolution": { "value": "1.0 * day", "siTime": 1 }
+        }
+      }
+    ],
+    "ResolutionSpec": [
+      {
+        "id": "rs-hzb-250m",
+        "version": "1.0.0",
+        "spatialResolution": { "value": "250.0 * meter", "siLength": 1 },
+        "temporalResolution": { "value": "1.0 * year", "siTime": 1 }
+      }
+    ],
+    "QualityProfile": [
+      {
+        "id": "qp-hydro-qc3",
+        "version": "1.0.0",
+        "level": "QC3",
+        "standard": "IHO S-44 Hydrographic Survey"
+      }
+    ],
+    "UncertaintyModel": [
+      {
+        "id": "um-slr-gaussian",
+        "version": "1.0.0",
+        "uncertainty": {
+          "confidenceInterval": 0.95,
+          "distribution": {
+            "type": "Gaussian",
+            "mean": 0.52,
+            "std": 0.12
+          }
+        }
+      }
+    ],
+    "AccessEndpoint": [
+      {
+        "id": "ae-thredds",
+        "version": "1.0.0",
+        "url": "https://data.coastal-lab.example/thredds/catalog.html",
+        "authMethod": "OAuth2"
+      }
+    ]
+  },
+
+  "ModelAdapter": {
+    "ModelInterface": [
+      {
+        "id": "mi-fvcom-hzb",
+        "version": "1.0.0",
+        "modelName": "FVCOM",
+        "framework": "Fortran/MPI"
+      },
+      {
+        "id": "mi-slamm-hzb",
+        "version": "1.0.0",
+        "modelName": "SLAMM",
+        "framework": "Java"
+      }
+    ],
+    "ModelCapability": [
+      {
+        "id": "cap-fvcom",
+        "version": "1.0.0",
+        "capabilities": ["hydrodynamics", "tidal_modeling", "storm_surge"]
+      }
+    ],
+    "ModelIOContract": [
+      {
+        "id": "ioc-fvcom",
+        "version": "1.0.0",
+        "inputs": [
+          "wind_field:Vector3D[m/s]",
+          "boundary_tide:Scalar[meter]",
+          "bathymetry:Raster[meter]"
+        ],
+        "outputs": [
+          "sea_surface_height:Field2D[meter]",
+          "current_velocity:Field3D[m/s]"
+        ]
+      }
+    ],
+    "ModelVersion": [
+      {
+        "id": "mv-fvcom-412",
+        "version": "1.0.0",
+        "versionTag": "v4.1.2",
+        "checksum": "sha256:a3b1c2d4e5f6..."
+      }
+    ],
+    "ModelDeployment": [
+      {
+        "id": "md-fvcom-cluster",
+        "version": "1.0.0",
+        "runtime": "HPC-Slurm",
+        "replicas": 4
+      }
+    ],
+    "ModelInvokeBinding": [
+      {
+        "id": "mib-fvcom-hzb",
+        "version": "1.0.0",
+        "bindingTarget": "mi-fvcom-hzb",
+        "method": "batch_hpc"
+      }
+    ]
+  },
+
+  "CrossSubjectLink": {
+    "Subject": [
+      {
+        "id": "subj-water-bureau",
+        "version": "1.0.0",
+        "subjectName": "浙江省水利厅",
+        "domain": "coastal_management"
+      },
+      {
+        "id": "subj-ecology-bureau",
+        "version": "1.0.0",
+        "subjectName": "浙江省生态环境厅",
+        "domain": "ecological_protection"
+      }
+    ],
+    "Role": [
+      {
+        "id": "role-planner",
+        "version": "1.0.0",
+        "roleName": "coastal_planner"
+      },
+      {
+        "id": "role-scientist",
+        "version": "1.0.0",
+        "roleName": "research_scientist"
+      }
+    ],
+    "Jurisdiction": [
+      {
+        "id": "jur-hzb-region",
+        "version": "1.0.0",
+        "scope": "Hangzhou Bay Coastal Zone (120.8E-122.0E, 30.0N-31.0N)"
+      }
+    ],
+    "SemanticLink": [
+      {
+        "id": "slink-fvcom-slr",
+        "version": "1.0.0",
+        "from": "mi-fvcom-hzb",
+        "to": "um-slr-gaussian",
+        "relation": "consumes_uncertainty_from"
+      }
+    ],
+    "Provenance": [
+      {
+        "id": "prov-tide-data",
+        "version": "1.0.0",
+        "source": "ds-tide-gauge",
+        "timestamp": "2025-06-15T12:00:00Z"
+      }
+    ],
+    "Authorization": [
+      {
+        "id": "auth-fvcom-access",
+        "version": "1.0.0",
+        "principal": "subj-water-bureau",
+        "action": "invoke_model",
+        "resource": "mi-fvcom-hzb"
+      },
+      {
+        "id": "auth-llm-access",
+        "version": "1.0.0",
+        "principal": "subj-ecology-bureau",
+        "action": "dispatch_llm",
+        "resource": "llm-slr-projection"
+      }
+    ],
+    "Responsibility": [
+      {
+        "id": "resp-adaptation",
+        "version": "1.0.0",
+        "duty": "hybrid_adaptation_implementation",
+        "assignee": "subj-water-bureau"
+      }
+    ]
+  },
+
+  "LLMDispatch": {
+    "LLMTask": [
+      {
+        "id": "llm-slr-projection",
+        "version": "1.0.0",
+        "taskType": "SLR_projection",
+        "description": "基于历史验潮站与卫星测高数据，使用LLM生成2050年杭州湾海平面上升预测及叙述性说明"
+      }
+    ],
+    "PromptContract": [
+      {
+        "id": "pc-slr-projection",
+        "version": "1.0.0",
+        "systemPrompt": "你是一位海岸带海洋学家。基于提供的历史潮位数据，预测杭州湾2050年海平面上升值，并给出置信区间。所有数值必须引用数据来源。",
+        "userPrompt": "请基于杭州湾1990-2025年验潮站月均海平面数据（来源: ds-tide-gauge）和卫星测高数据（来源: ds-satellite-altimetry），预测2050年相对海平面上升值（单位: meter），给出95%置信区间。"
+      }
+    ],
+    "SpatialCognitionCall": [
+      {
+        "id": "scc-hzb-inundation",
+        "version": "1.0.0",
+        "query": "识别杭州湾0.5m海平面上升下的淹没风险区域",
+        "region": "120.8E-122.0E, 30.0N-31.0N"
+      }
+    ],
+    "LogicInferenceCall": [
+      {
+        "id": "lic-adaptation-reasoning",
+        "version": "1.0.0",
+        "premise": "如果2050年SLR=0.52m且现有海堤堤顶高程=6.5m且百年一遇风暴潮增水=2.3m",
+        "conclusion": "则海堤安全裕度=3.68m，满足1-in-100-year防洪标准"
+      }
+    ],
+    "LLMOutputBinding": [
+      {
+        "id": "lob-slr-value",
+        "version": "1.0.0",
+        "targetField": "drivers.sea_level_rise",
+        "transform": "extract_numeric_value"
+      }
+    ],
+    "GroundingConstraint": [
+      {
+        "id": "gc-tide-gauge",
+        "version": "1.0.0",
+        "constraint": "LLM输出的SLR值必须落在验潮站观测数据外推范围内（0.3-0.8m）",
+        "dataSourceRef": "ds-tide-gauge"
+      }
+    ],
+    "HallucinationGuard": [
+      {
+        "id": "hg-numeric-check",
+        "version": "1.0.0",
+        "strategy": "numeric_range_validation",
+        "threshold": 0.15
+      }
+    ]
+  },
+
+  "GranularityPartition": {
+    "GranularityLevel": [
+      {
+        "id": "gl-wholedomain",
+        "version": "1.0.0",
+        "level": "WholeDomain",
+        "scale": { "value": "100000.0 * meter", "siLength": 1 }
+      },
+      {
+        "id": "gl-coastalcell",
+        "version": "1.0.0",
+        "level": "CoastalCell",
+        "scale": { "value": "10000.0 * meter", "siLength": 1 }
+      },
+      {
+        "id": "gl-corepatch",
+        "version": "1.0.0",
+        "level": "CorePatch",
+        "scale": { "value": "250.0 * meter", "siLength": 1 }
+      },
+      {
+        "id": "gl-baseelement",
+        "version": "1.0.0",
+        "level": "BaseElement",
+        "scale": { "value": "10.0 * meter", "siLength": 1 }
+      }
+    ],
+    "PartitionRule": [
+      {
+        "id": "pr-tidal-cell",
+        "version": "1.0.0",
+        "rule": "按潮汐特征将杭州湾划分为4个海岸单元（北岸、南岸、湾顶、湾口）"
+      }
+    ],
+    "AggregationOperator": [
+      {
+        "id": "ao-slr-spatial",
+        "version": "1.0.0",
+        "operator": "spatial_mean",
+        "fromLevel": "CorePatch",
+        "toLevel": "CoastalCell"
+      }
+    ],
+    "DisaggregationOperator": [
+      {
+        "id": "do-slr-downscale",
+        "version": "1.0.0",
+        "operator": "bilinear_interpolation",
+        "fromLevel": "CoastalCell",
+        "toLevel": "CorePatch"
+      }
+    ],
+    "BoundaryRule": [
+      {
+        "id": "br-open-boundary",
+        "version": "1.0.0",
+        "boundaryType": "open_ocean",
+        "condition": "湾口断面采用TPXO9潮汐调和常数作为开边界"
+      }
+    ]
+  },
+
+  "LayeredClassification": {
+    "ClassificationLayer": [
+      {
+        "id": "cl-wd-hzb",
+        "version": "1.0.0",
+        "level": "WholeDomain",
+        "code": "CZ.WD.HANGZHOU-BAY",
+        "label": "杭州湾全域",
+        "cmecsRef": "CMECS_System_Estuarine",
+        "edcsRef": "ECC_ESTUARY_SYSTEM"
+      },
+      {
+        "id": "cl-cc-north",
+        "version": "1.0.0",
+        "level": "CoastalCell",
+        "code": "CZ.CC.HZB-NORTH",
+        "label": "杭州湾北岸单元",
+        "cmecsRef": "CMECS_Subsystem_North_Shore",
+        "edcsRef": "ECC_COASTAL_REGION",
+        "parentCode": "CZ.WD.HANGZHOU-BAY"
+      },
+      {
+        "id": "cl-cc-south",
+        "version": "1.0.0",
+        "level": "CoastalCell",
+        "code": "CZ.CC.HZB-SOUTH",
+        "label": "杭州湾南岸单元",
+        "cmecsRef": "CMECS_Subsystem_South_Shore",
+        "edcsRef": "ECC_COASTAL_REGION",
+        "parentCode": "CZ.WD.HANGZHOU-BAY"
+      },
+      {
+        "id": "cl-cp-saltmarsh",
+        "version": "1.0.0",
+        "level": "CorePatch",
+        "code": "CZ.CP.SALT-MARSH-N",
+        "label": "北岸盐沼湿地核心斑块",
+        "cmecsRef": "CMECS_Biotic_Tidal_Flat_Marsh",
+        "edcsRef": "ECC_SALT_MARSH",
+        "parentCode": "CZ.CC.HZB-NORTH"
+      },
+      {
+        "id": "cl-cp-seawall",
+        "version": "1.0.0",
+        "level": "CorePatch",
+        "code": "CZ.CP.SEAWALL-A",
+        "label": "海堤A段防护区",
+        "cmecsRef": "CMECS_Geoform_Artificial_Structure",
+        "edcsRef": "ECC_COASTAL_DEFENSE",
+        "parentCode": "CZ.CC.HZB-NORTH"
+      },
+      {
+        "id": "cl-cp-landuse",
+        "version": "1.0.0",
+        "level": "CorePatch",
+        "code": "CZ.CP.LANDUSE-IND",
+        "label": "工业用地核心斑块",
+        "cmecsRef": "CMECS_Anthropogenic_Land_Use",
+        "edcsRef": "ECC_URBAN_INDUSTRIAL",
+        "parentCode": "CZ.CC.HZB-NORTH"
+      },
+      {
+        "id": "cl-be-spartina",
+        "version": "1.0.0",
+        "level": "BaseElement",
+        "code": "CZ.BE.SPARTINA-ALT",
+        "label": "互花米草群落",
+        "cmecsRef": "CMECS_Biotic_Unit_Spartina_alterniflora",
+        "edcsRef": "EDCS_SPARTINA_ALTERNIFLORA",
+        "parentCode": "CZ.CP.SALT-MARSH-N"
+      },
+      {
+        "id": "cl-be-mudflat",
+        "version": "1.0.0",
+        "level": "BaseElement",
+        "code": "CZ.BE.MUDFLAT-01",
+        "label": "泥沙混合光滩",
+        "cmecsRef": "CMECS_Substrate_Mud_Sand_Mix",
+        "edcsRef": "EDCS_FINE_SAND_MUD_MIXTURE",
+        "parentCode": "CZ.CP.SALT-MARSH-N"
+      },
+      {
+        "id": "cl-be-crest",
+        "version": "1.0.0",
+        "level": "BaseElement",
+        "code": "CZ.BE.SEAWALL-CREST",
+        "label": "海堤堤顶要素",
+        "cmecsRef": "CMECS_Geoform_Artificial_Structure",
+        "edcsRef": "ECC_COASTAL_DEFENSE_STRUCTURE",
+        "parentCode": "CZ.CP.SEAWALL-A"
+      }
+    ]
+  },
+
+  "DigitalTwinMapping": {
+    "PhysicalAsset": [
+      {
+        "id": "pa-seawall-a",
+        "version": "1.0.0",
+        "assetType": "Coastal_Defense_Structure",
+        "location": "120.9E-121.2E, 30.7N-30.9N"
+      },
+      {
+        "id": "pa-saltmarsh-n",
+        "version": "1.0.0",
+        "assetType": "Tidal_Wetland",
+        "location": "121.0E-121.3E, 30.8N-31.0N"
+      }
+    ],
+    "DigitalReplica": [
+      {
+        "id": "dr-fvcom-hzb",
+        "version": "1.0.0",
+        "replicaType": "HydrodynamicModel",
+        "modelRef": "mi-fvcom-hzb"
+      },
+      {
+        "id": "dr-slamm-hzb",
+        "version": "1.0.0",
+        "replicaType": "MarshMigrationModel",
+        "modelRef": "mi-slamm-hzb"
+      }
+    ],
+    "AssimilationBinding": [
+      {
+        "id": "ab-enkf-ssh",
+        "version": "1.0.0",
+        "method": "EnsembleKalmanFilter",
+        "observationRef": "ds-tide-gauge"
+      }
+    ],
+    "SimulationBinding": [
+      {
+        "id": "sb-fvcom-2050",
+        "version": "1.0.0",
+        "engine": "FVCOM_v4.1.2",
+        "timeHorizon": { "value": "25.0 * year", "siTime": 1 }
+      }
+    ],
+    "FeedbackControl": [
+      {
+        "id": "fc-tide-gate",
+        "version": "1.0.0",
+        "controller": "PID_TideGateController",
+        "actuator": "tide_gate_north"
+      }
+    ],
+    "StateVariable": [
+      {
+        "id": "sv-ssh",
+        "version": "1.0.0",
+        "variableName": "sea_surface_height",
+        "unit": { "value": "meter", "siLength": 1 }
+      },
+      {
+        "id": "sv-salinity",
+        "version": "1.0.0",
+        "variableName": "salinity",
+        "unit": { "value": "psu" }
+      },
+      {
+        "id": "sv-temp",
+        "version": "1.0.0",
+        "variableName": "water_temperature",
+        "unit": { "value": "celsius", "siTemperature": 1 }
+      }
+    ],
+    "ObservationStream": [
+      {
+        "id": "os-tide-realtime",
+        "version": "1.0.0",
+        "streamSource": "ds-tide-gauge",
+        "frequency": { "value": "6.0 * minute", "siTime": 1 }
+      },
+      {
+        "id": "os-satellite-daily",
+        "version": "1.0.0",
+        "streamSource": "ds-satellite-altimetry",
+        "frequency": { "value": "1.0 * day", "siTime": 1 }
+      }
+    ]
+  },
+
+  "x-blue-carbon": {
+    "id": "bc-hzb-01",
+    "version": "1.0.0",
+    "carbonFlux": 2.34,
+    "carbonStock": 185.6,
+    "habitatType": "SaltMarsh",
+    "unit": { "value": "kgC/(m^2*yr)", "siMass": 1, "siTime": -2 }
+  }
+}

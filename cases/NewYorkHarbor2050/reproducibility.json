@@ -1,0 +1,213 @@
+{
+ "generated": "2026-10-05T13:00:10Z",
+ "python": "3.12.9",
+ "mode": "full",
+ "elapsed_s": 11.221245916036423,
+ "inputs": {
+  "dem/copdem90_long_island.tif": {
+   "bytes": 1893925,
+   "sha256": "c1e075207c54fbb2bdf98b5bf6000c753868edbce03998b49a91684b0ff5b946"
+  },
+  "coastal_models/nyofs.nc": {
+   "bytes": 10503328,
+   "sha256": "893085b92e71f824e220fc02474613bad3ecf5b3b93edff99389df422e770abc"
+  },
+  "tide/coops_monthly_8518750.json": {
+   "bytes": 146909,
+   "sha256": "266f174af1d8eebccdebaa79c9830558e253a8128e746e3c5cd60234b4624ee6"
+  },
+  "tide/coops_monthly_8510560.json": {
+   "bytes": 140011,
+   "sha256": "989222d416785fc376c090d752e5f369fe88a1afd5218cc3919f49dee6db3e76"
+  },
+  "tide/coops_8518750.json": {
+   "bytes": 10527,
+   "sha256": "be33257a4940c17dcc729cbeeb98f3d3b0b08bafb1be8f02d9643e52de377e81"
+  },
+  "tide/coops_8510560.json": {
+   "bytes": 10491,
+   "sha256": "07a7209dde92585d3070921c09f8cfa6d2bba910b552e0a97e957eb365342e01"
+  },
+  "timeseries/sea_level/psmsl_rlr_annual.zip": {
+   "bytes": 15522642,
+   "sha256": "3ccb7c852352b37671820cb1f989a8d447252f66fecc95d15ddc910b6b4d0618"
+  },
+  "timeseries/sea_level/slr_sla_gbl_keep_ref_90.csv": {
+   "bytes": 38732,
+   "sha256": "003c08fcfe10187a237f6319116aaeaebac3c708be533ba82cc7ea9076b231a5"
+  },
+  "surge/codec_coastal_extremes.nc": {
+   "bytes": 3291991,
+   "sha256": "77153da03139105b77e11573b14f8f120cb5dce2a7783048331390cc72d80179"
+  },
+  "ecosystem/GTF30_2020maps_W65_W90.zip": {
+   "bytes": 27321695,
+   "sha256": "804b8b86484149ea4387f07e685adaa7baedd1dab2e41a7eb960e58b45e7ac65"
+  },
+  "shoreline/gsw_occurrence_80W_50N.tif": {
+   "bytes": 84446804,
+   "sha256": "a5888f8fe030a12d6905532afb828fdfb59e6287fe9df96aa5480ef63baa3101"
+  },
+  "socio/GHS_POP_E2020_30ss.zip": {
+   "bytes": 482351880,
+   "sha256": "579fb7477b33d9be61e9562b170ea108a670b85ef6fe23b61a22d17200929636"
+  },
+  "planning/World_EEZ_v12_LR.zip": {
+   "bytes": 26358854,
+   "sha256": "5be66b2b2038b489ee9ad1675ae9c1ef3ac7b10fa016e6a6e8796fb37d31e55a"
+  },
+  "waves/marine_long_island.json": {
+   "bytes": 5859,
+   "sha256": "93aa268bcffd8dd515ee4d1d11501f62a5c37b37abbc8861c0d1b6b96d29a513"
+  },
+  "wind/wind_long_island.json": {
+   "bytes": 4909,
+   "sha256": "5ddfc978ceac694f2bb908793b5d769fadb72067954dcc523572fc50e387a869"
+  }
+ },
+ "outputs": {
+  "data/derived/nyh/exposure.json": {
+   "bytes": 4065,
+   "sha256": "4d8c390567ff5ae208bd4c908ff0dbdbae224e02f872a0fc914d520fa6977617"
+  },
+  "data/derived/nyh/gsw_agreement.tif": {
+   "bytes": 32892,
+   "sha256": "93b93f151311203b2f1ff9a849cdfbdcb2081ab8a79ef58dcd9c0e58286ecf4c"
+  },
+  "data/derived/nyh/habitat_gtf30.tif": {
+   "bytes": 232571,
+   "sha256": "c8956b7627b33286296347998d7c8bb2fd01058ad8a1064f5b815e2a3d9ad40f"
+  },
+  "data/derived/nyh/inundation.json": {
+   "bytes": 4410,
+   "sha256": "c8f4edf1b1d013509ee0979c2763df3355d6f8e7a79360331b3470a7f748e371"
+  },
+  "data/derived/nyh/inundation_2050_RP100_central.tif": {
+   "bytes": 153615,
+   "sha256": "8026d6f0aae868fc600964903877cbd378e54855a108e95608abf400971489f1"
+  },
+  "data/derived/nyh/inundation_2050_RP100_conservative.tif": {
+   "bytes": 151103,
+   "sha256": "f9bb7e63617746d246eb43da42df381fff9a44d50fe0f744dac8769d44fe56e4"
+  },
+  "data/derived/nyh/inundation_2050_RP100_upper.tif": {
+   "bytes": 154297,
+   "sha256": "ad66bc301aafa3cdd9a579694ab582426eb4b3afa5f7351b70303421ed064016"
+  },
+  "data/derived/nyh/inundation_2100_RP100_central.tif": {
+   "bytes": 164441,
+   "sha256": "7187c32a5cc11a0a64b20cfb909343674977aeaf503c36b9b2639a3e34a77cc5"
+  },
+  "data/derived/nyh/inundation_2100_RP100_conservative.tif": {
+   "bytes": 157560,
+   "sha256": "8e9b96261c0ae21b15c4cd7558d9157bd0b92a2b8362ffae4367dab78ca7393e"
+  },
+  "data/derived/nyh/inundation_2100_RP100_upper.tif": {
+   "bytes": 166521,
+   "sha256": "3d50f9520ea2179ffe223f91b0612f228b8f95269228db8c4f0b847275c52f29"
+  },
+  "data/derived/nyh/inundation_present_RP10.tif": {
+   "bytes": 123532,
+   "sha256": "ff44c2afbb7fe4f369ac682257479af40bf3ab571d2cdc285bf06031ddf8988d"
+  },
+  "data/derived/nyh/inundation_present_RP100.tif": {
+   "bytes": 147884,
+   "sha256": "9b3fdccb001bae9b2a3a6d3704bf88beb3b59010e7c55a8b8f9d9cde5d7219a0"
+  },
+  "data/derived/nyh/inundation_present_RP50.tif": {
+   "bytes": 139081,
+   "sha256": "a778e429a3c8e5a1c270cedf2e2db51ff7bffedfcb0a652adca35472195345c5"
+  },
+  "data/derived/nyh/inundation_present_RP500.tif": {
+   "bytes": 164514,
+   "sha256": "8aaa08f8bfc675d4e867834f0bf9c70629c78ab37b454e4b3fdb966f2f28533e"
+  },
+  "data/derived/nyh/inundation_present_sandy2012.tif": {
+   "bytes": 176407,
+   "sha256": "6f32d5f31dfa00ba079329e4911075f6acdcb828f57722b4897de3b6c0413ad4"
+  },
+  "data/derived/nyh/validation.json": {
+   "bytes": 9808,
+   "sha256": "fa0d66c38cf22921ec4b1ca968aee6c54ab8761f41367a5178de7e8923d2ab94"
+  },
+  "data/derived/nyh/water_levels.json": {
+   "bytes": 13277,
+   "sha256": "598c75723011e37b6a27df2093c3655225e7b4c8e594d466fec32c3f998a1b5c"
+  },
+  "cases/NewYorkHarbor2050/BENCHMARK.md": {
+   "bytes": 2788,
+   "sha256": "0bcda83e56db8fc4943fd4b4b2756d974841925a05138efafc1150f13bb5e118"
+  },
+  "cases/NewYorkHarbor2050/REPRODUCIBILITY.md": {
+   "bytes": 6171,
+   "sha256": "c99184f82d7f1d59443e6950532c958e635c31dd0da9409570a2b6db11207b8d"
+  },
+  "cases/NewYorkHarbor2050/benchmark.json": {
+   "bytes": 6564,
+   "sha256": "3c559245d709ac4fbdb6860b2a485a0172bcf6791756505ca14fb7821dea2ca3"
+  },
+  "cases/NewYorkHarbor2050/new_york_harbor.geojson": {
+   "bytes": 23193,
+   "sha256": "797730d7e4b8b4ee47eca36d70e3fcea08d16c33fcf74bf937b919c7a0af952a"
+  },
+  "cases/NewYorkHarbor2050/new_york_harbor.json": {
+   "bytes": 31423,
+   "sha256": "b2a433c616848cd53274d210a800f786f6d420ea0d76c5d7f62f08ddc8090e20"
+  },
+  "cases/NewYorkHarbor2050/new_york_harbor.md": {
+   "bytes": 42343,
+   "sha256": "bc624fe22820b209258aee8c3c775e3ad3217df0199e21c72c77affa6f731884"
+  },
+  "cases/NewYorkHarbor2050/new_york_harbor_reorganised.cz": {
+   "bytes": 20889,
+   "sha256": "35f9d8a47ad7781eeaf094b3e983264496a366f3a35a87955b6d1d3670fe288a"
+  },
+  "cases/NewYorkHarbor2050/new_york_harbor_scenario.cz": {
+   "bytes": 22836,
+   "sha256": "838611b372febc01230d3e3d138725c0a57c9cc3994b47208ef22dd5b5e10723"
+  },
+  "cases/NewYorkHarbor2050/reproducibility.json": {
+   "bytes": 7326,
+   "sha256": "a3beb2902c492330e53870047b35c7585f2abddb8b42b3d1a32ac2684ecb5004"
+  }
+ },
+ "drift": [
+  {
+   "section": "outputs",
+   "file": "cases/NewYorkHarbor2050/BENCHMARK.md",
+   "timing_bearing": true,
+   "before": "61a5e2481d6f9437",
+   "after": "0bcda83e56db8fc4"
+  },
+  {
+   "section": "outputs",
+   "file": "cases/NewYorkHarbor2050/REPRODUCIBILITY.md",
+   "timing_bearing": true,
+   "before": "39ed20e6c39f4628",
+   "after": "c99184f82d7f1d59"
+  },
+  {
+   "section": "outputs",
+   "file": "cases/NewYorkHarbor2050/benchmark.json",
+   "timing_bearing": true,
+   "before": "535cda8b42c9862b",
+   "after": "3c559245d709ac4f"
+  },
+  {
+   "section": "outputs",
+   "file": "cases/NewYorkHarbor2050/reproducibility.json",
+   "timing_bearing": true,
+   "before": "1758cadead00455b",
+   "after": "a3beb2902c492330"
+  }
+ ],
+ "pipeline": [
+  "s1_water_levels.py",
+  "s2_inundation.py",
+  "s3_exposure.py",
+  "s4_scenario.py",
+  "s5_benchmark.py",
+  "s6_validation.py"
+ ],
+ "datum_note": "water levels are anomalies highest-MSL taken from the same CO-OPS table"
+}

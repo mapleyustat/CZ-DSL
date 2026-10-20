@@ -1,0 +1,493 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================ -->
+<!-- CZ-DSL 1.0 示例场景：杭州湾 2050 海平面上升情景              -->
+<!-- 杭州湾海岸带综合环境场景，覆盖全部七大组件与四级分类层次      -->
+<!-- 验证 cz-dsl.xsd schema 的完整实例                         -->
+<!-- ============================================================ -->
+<cz:CZScenario id="HZB-2050-SLR"
+               version="2.0"
+               xmlns:cz="http://cz-dsl.org/schema/1.0"
+               xmlns:bc="http://cz-dsl.org/schema/1.0/ext/blue-carbon"
+               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xsi:schemaLocation="http://cz-dsl.org/schema/1.0 ../cz-dsl.xsd">
+
+  <!-- ==================== 元数据 ==================== -->
+  <cz:metadata>
+    <cz:Title>杭州湾2050海平面上升综合评估情景</cz:Title>
+    <cz:Description>杭州湾海岸带2050年海平面上升情景分析，涵盖潮汐、盐沼湿地、海堤、土地利用、政策包及LLM辅助SLR预测</cz:Description>
+    <cz:Author>Coastal Systems Lab</cz:Author>
+    <cz:Created>2026-08-14T08:00:00Z</cz:Created>
+    <cz:Version>2.0.0</cz:Version>
+    <cz:Tags>Hangzhou Bay</cz:Tags>
+    <cz:Tags>Sea Level Rise</cz:Tags>
+    <cz:Tags>Salt Marsh</cz:Tags>
+    <cz:Tags>Seawall</cz:Tags>
+    <cz:Tags>Policy Package</cz:Tags>
+  </cz:metadata>
+
+  <!-- ==================== 空间参考 ==================== -->
+  <cz:spatialReference name="HangzhouBay_SRM" srmMapping="SRM_GEODETIC_WGS_1984">
+    <cz:EPSG>4326</cz:EPSG>
+    <cz:WKT>GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]</cz:WKT>
+    <cz:DynamicParameters>
+      <cz:Epoch>2025.0</cz:Epoch>
+      <cz:TidalDatum>mean_sea_level</cz:TidalDatum>
+      <cz:GeoidModel>EGM2008</cz:GeoidModel>
+      <cz:Origin x="121.0" y="30.5" z="0.0"/>
+    </cz:DynamicParameters>
+  </cz:spatialReference>
+
+  <!-- ==================== 时间参考 ==================== -->
+  <cz:temporalReference>
+    <cz:Calendar>Gregorian</cz:Calendar>
+    <cz:Epoch>2025-01-01T00:00:00Z</cz:Epoch>
+    <cz:Resolution siLength="0" siMass="0" siTime="1">1.0 * hour</cz:Resolution>
+    <cz:TimeZone>UTC</cz:TimeZone>
+  </cz:temporalReference>
+
+  <!-- ==================== 粒度 ==================== -->
+  <cz:granularity>
+    <cz:Level>CoastalCell</cz:Level>
+  </cz:granularity>
+
+  <!-- ==================== 组件 1: DataAccess ==================== -->
+  <cz:DataAccess>
+    <!-- 验潮站数据源 -->
+    <cz:DataSource id="ds-tide-gauge" version="1.0.0">
+      <cz:Protocol>OPeNDAP</cz:Protocol>
+      <cz:Endpoint>https://data.coastal-lab.example/opendap/hzb/tide_gauge</cz:Endpoint>
+      <cz:Format>NetCDF-4</cz:Format>
+    </cz:DataSource>
+
+    <!-- 卫星测高数据源 -->
+    <cz:DataSource id="ds-satellite-altimetry" version="1.0.0">
+      <cz:Protocol>HTTPS</cz:Protocol>
+      <cz:Endpoint>https://data.coastal-lab.example/altimetry/hzb</cz:Endpoint>
+      <cz:Format>GeoTIFF</cz:Format>
+    </cz:DataSource>
+
+    <!-- 土地利用数据源 -->
+    <cz:DataSource id="ds-landuse" version="1.0.0">
+      <cz:Protocol>WFS</cz:Protocol>
+      <cz:Endpoint>https://gis.coastal-lab.example/wfs/landuse_2025</cz:Endpoint>
+      <cz:Format>GeoJSON</cz:Format>
+    </cz:DataSource>
+
+    <!-- 坐标参考原子 -->
+    <cz:CoordinateReference id="crs-hzb-utm" version="1.0.0">
+      <cz:CRS name="WGS84_UTM_Zone_51N" srmMapping="SRM_EQUIDISTANT_CYLINDRICAL">
+        <cz:EPSG>32651</cz:EPSG>
+        <cz:DynamicParameters>
+          <cz:TidalDatum>mean_high_water</cz:TidalDatum>
+        </cz:DynamicParameters>
+      </cz:CRS>
+    </cz:CoordinateReference>
+
+    <!-- 时间参考原子 -->
+    <cz:TemporalReference id="tr-scenario-2050" version="1.0.0">
+      <cz:Temporal>
+        <cz:Calendar>Gregorian</cz:Calendar>
+        <cz:Epoch>2025-01-01T00:00:00Z</cz:Epoch>
+        <cz:Resolution siLength="0" siMass="0" siTime="1">1.0 * day</cz:Resolution>
+      </cz:Temporal>
+    </cz:TemporalReference>
+
+    <!-- 分辨率规格 -->
+    <cz:ResolutionSpec id="rs-hzb-250m" version="1.0.0">
+      <cz:SpatialResolution siLength="1" siMass="0" siTime="0">250.0 * meter</cz:SpatialResolution>
+      <cz:TemporalResolution siLength="0" siMass="0" siTime="1">1.0 * year</cz:TemporalResolution>
+    </cz:ResolutionSpec>
+
+    <!-- 质量档案 -->
+    <cz:QualityProfile id="qp-hydro-qc3" version="1.0.0">
+      <cz:Level>QC3</cz:Level>
+      <cz:Standard>IHO S-44 Hydrographic Survey</cz:Standard>
+    </cz:QualityProfile>
+
+    <!-- 不确定性模型 -->
+    <cz:UncertaintyModel id="um-slr-gaussian" version="1.0.0">
+      <cz:Uncertainty confidenceInterval="0.95">
+        <cz:Distribution type="Gaussian" mean="0.52" std="0.12"/>
+      </cz:Uncertainty>
+    </cz:UncertaintyModel>
+
+    <!-- 访问端点 -->
+    <cz:AccessEndpoint id="ae-thredds" version="1.0.0">
+      <cz:URL>https://data.coastal-lab.example/thredds/catalog.html</cz:URL>
+      <cz:AuthMethod>OAuth2</cz:AuthMethod>
+    </cz:AccessEndpoint>
+  </cz:DataAccess>
+
+  <!-- ==================== 组件 2: ModelAdapter ==================== -->
+  <cz:ModelAdapter>
+    <!-- FVCOM 水动力模型接口 -->
+    <cz:ModelInterface id="mi-fvcom-hzb" version="1.0.0">
+      <cz:ModelName>FVCOM</cz:ModelName>
+      <cz:Framework>Fortran/MPI</cz:Framework>
+    </cz:ModelInterface>
+
+    <!-- SLAMM 湿地迁移模型接口 -->
+    <cz:ModelInterface id="mi-slamm-hzb" version="1.0.0">
+      <cz:ModelName>SLAMM</cz:ModelName>
+      <cz:Framework>Java</cz:Framework>
+    </cz:ModelInterface>
+
+    <!-- 模型能力 -->
+    <cz:ModelCapability id="cap-fvcom" version="1.0.0">
+      <cz:Capability>hydrodynamics</cz:Capability>
+      <cz:Capability>tidal_modeling</cz:Capability>
+      <cz:Capability>storm_surge</cz:Capability>
+    </cz:ModelCapability>
+
+    <!-- 模型 IO 契约 -->
+    <cz:ModelIOContract id="ioc-fvcom" version="1.0.0">
+      <cz:Input>wind_field:Vector3D[m/s]</cz:Input>
+      <cz:Input>boundary_tide:Scalar[meter]</cz:Input>
+      <cz:Input>bathymetry:Raster[meter]</cz:Input>
+      <cz:Output>sea_surface_height:Field2D[meter]</cz:Output>
+      <cz:Output>current_velocity:Field3D[m/s]</cz:Output>
+    </cz:ModelIOContract>
+
+    <!-- 模型版本 -->
+    <cz:ModelVersion id="mv-fvcom-412" version="1.0.0">
+      <cz:VersionTag>v4.1.2</cz:VersionTag>
+      <cz:Checksum>sha256:a3b1c2d4e5f6...</cz:Checksum>
+    </cz:ModelVersion>
+
+    <!-- 模型部署 -->
+    <cz:ModelDeployment id="md-fvcom-cluster" version="1.0.0">
+      <cz:Runtime>HPC-Slurm</cz:Runtime>
+      <cz:Replicas>4</cz:Replicas>
+    </cz:ModelDeployment>
+
+    <!-- 模型调用绑定 -->
+    <cz:ModelInvokeBinding id="mib-fvcom-hzb" version="1.0.0">
+      <cz:BindingTarget>mi-fvcom-hzb</cz:BindingTarget>
+      <cz:Method>batch_hpc</cz:Method>
+    </cz:ModelInvokeBinding>
+  </cz:ModelAdapter>
+
+  <!-- ==================== 组件 3: CrossSubjectLink ==================== -->
+  <cz:CrossSubjectLink>
+    <!-- 主体 -->
+    <cz:Subject id="subj-water-bureau" version="1.0.0">
+      <cz:SubjectName>浙江省水利厅</cz:SubjectName>
+      <cz:Domain>coastal_management</cz:Domain>
+    </cz:Subject>
+
+    <cz:Subject id="subj-ecology-bureau" version="1.0.0">
+      <cz:SubjectName>浙江省生态环境厅</cz:SubjectName>
+      <cz:Domain>ecological_protection</cz:Domain>
+    </cz:Subject>
+
+    <!-- 角色 -->
+    <cz:Role id="role-planner" version="1.0.0">
+      <cz:RoleName>coastal_planner</cz:RoleName>
+    </cz:Role>
+
+    <cz:Role id="role-scientist" version="1.0.0">
+      <cz:RoleName>research_scientist</cz:RoleName>
+    </cz:Role>
+
+    <!-- 管辖权 -->
+    <cz:Jurisdiction id="jur-hzb-region" version="1.0.0">
+      <cz:Scope>Hangzhou Bay Coastal Zone (120.8E-122.0E, 30.0N-31.0N)</cz:Scope>
+    </cz:Jurisdiction>
+
+    <!-- 语义链接 -->
+    <cz:SemanticLink id="slink-fvcom-slr" version="1.0.0">
+      <cz:From>mi-fvcom-hzb</cz:From>
+      <cz:To>um-slr-gaussian</cz:To>
+      <cz:Relation>consumes_uncertainty_from</cz:Relation>
+    </cz:SemanticLink>
+
+    <!-- 溯源 -->
+    <cz:Provenance id="prov-tide-data" version="1.0.0">
+      <cz:Source>ds-tide-gauge</cz:Source>
+      <cz:Timestamp>2025-06-15T12:00:00Z</cz:Timestamp>
+    </cz:Provenance>
+
+    <!-- 授权 -->
+    <cz:Authorization id="auth-fvcom-access" version="1.0.0">
+      <cz:Principal>subj-water-bureau</cz:Principal>
+      <cz:Action>invoke_model</cz:Action>
+      <cz:Resource>mi-fvcom-hzb</cz:Resource>
+    </cz:Authorization>
+
+    <cz:Authorization id="auth-llm-access" version="1.0.0">
+      <cz:Principal>subj-ecology-bureau</cz:Principal>
+      <cz:Action>dispatch_llm</cz:Action>
+      <cz:Resource>llm-slr-projection</cz:Resource>
+    </cz:Authorization>
+
+    <!-- 责任 -->
+    <cz:Responsibility id="resp-adaptation" version="1.0.0">
+      <cz:Duty>hybrid_adaptation_implementation</cz:Duty>
+      <cz:Assignee>subj-water-bureau</cz:Assignee>
+    </cz:Responsibility>
+  </cz:CrossSubjectLink>
+
+  <!-- ==================== 组件 4: LLMDispatch ==================== -->
+  <cz:LLMDispatch>
+    <!-- LLM 任务: SLR 预测 -->
+    <cz:LLMTask id="llm-slr-projection" version="1.0.0">
+      <cz:TaskType>SLR_projection</cz:TaskType>
+      <cz:Description>基于历史验潮站与卫星测高数据，使用LLM生成2050年杭州湾海平面上升预测及叙述性说明</cz:Description>
+    </cz:LLMTask>
+
+    <!-- 提示契约 -->
+    <cz:PromptContract id="pc-slr-projection" version="1.0.0">
+      <cz:SystemPrompt>你是一位海岸带海洋学家。基于提供的历史潮位数据，预测杭州湾2050年海平面上升值，并给出置信区间。所有数值必须引用数据来源。</cz:SystemPrompt>
+      <cz:UserPrompt>请基于杭州湾1990-2025年验潮站月均海平面数据（来源: ds-tide-gauge）和卫星测高数据（来源: ds-satellite-altimetry），预测2050年相对海平面上升值（单位: meter），给出95%置信区间。</cz:UserPrompt>
+    </cz:PromptContract>
+
+    <!-- 空间认知调用 -->
+    <cz:SpatialCognitionCall id="scc-hzb-inundation" version="1.0.0">
+      <cz:Query>识别杭州湾0.5m海平面上升下的淹没风险区域</cz:Query>
+      <cz:Region>120.8E-122.0E, 30.0N-31.0N</cz:Region>
+    </cz:SpatialCognitionCall>
+
+    <!-- 逻辑推理调用 -->
+    <cz:LogicInferenceCall id="lic-adaptation-reasoning" version="1.0.0">
+      <cz:Premise>如果2050年SLR=0.52m且现有海堤堤顶高程=6.5m且百年一遇风暴潮增水=2.3m</cz:Premise>
+      <cz:Conclusion>则海堤安全裕度=3.68m，满足1-in-100-year防洪标准</cz:Conclusion>
+    </cz:LogicInferenceCall>
+
+    <!-- 输出绑定 -->
+    <cz:LLMOutputBinding id="lob-slr-value" version="1.0.0">
+      <cz:TargetField>drivers.sea_level_rise</cz:TargetField>
+      <cz:Transform>extract_numeric_value</cz:Transform>
+    </cz:LLMOutputBinding>
+
+    <!-- 接地约束 -->
+    <cz:GroundingConstraint id="gc-tide-gauge" version="1.0.0">
+      <cz:Constraint>LLM输出的SLR值必须落在验潮站观测数据外推范围内（0.3-0.8m）</cz:Constraint>
+      <cz:DataSourceRef>ds-tide-gauge</cz:DataSourceRef>
+    </cz:GroundingConstraint>
+
+    <!-- 幻觉防护 -->
+    <cz:HallucinationGuard id="hg-numeric-check" version="1.0.0">
+      <cz:Strategy>numeric_range_validation</cz:Strategy>
+      <cz:Threshold>0.15</cz:Threshold>
+    </cz:HallucinationGuard>
+  </cz:LLMDispatch>
+
+  <!-- ==================== 组件 5: GranularityPartition ==================== -->
+  <cz:GranularityPartition>
+    <!-- 粒度层级 -->
+    <cz:GranularityLevel id="gl-wholedomain" version="1.0.0">
+      <cz:Level>WholeDomain</cz:Level>
+      <cz:Scale siLength="1" siMass="0" siTime="0">100000.0 * meter</cz:Scale>
+    </cz:GranularityLevel>
+
+    <cz:GranularityLevel id="gl-coastalcell" version="1.0.0">
+      <cz:Level>CoastalCell</cz:Level>
+      <cz:Scale siLength="1" siMass="0" siTime="0">10000.0 * meter</cz:Scale>
+    </cz:GranularityLevel>
+
+    <cz:GranularityLevel id="gl-corepatch" version="1.0.0">
+      <cz:Level>CorePatch</cz:Level>
+      <cz:Scale siLength="1" siMass="0" siTime="0">250.0 * meter</cz:Scale>
+    </cz:GranularityLevel>
+
+    <cz:GranularityLevel id="gl-baseelement" version="1.0.0">
+      <cz:Level>BaseElement</cz:Level>
+      <cz:Scale siLength="1" siMass="0" siTime="0">10.0 * meter</cz:Scale>
+    </cz:GranularityLevel>
+
+    <!-- 分区规则 -->
+    <cz:PartitionRule id="pr-tidal-cell" version="1.0.0">
+      <cz:Rule>按潮汐特征将杭州湾划分为4个海岸单元（北岸、南岸、湾顶、湾口）</cz:Rule>
+    </cz:PartitionRule>
+
+    <!-- 聚合算子 -->
+    <cz:AggregationOperator id="ao-slr-spatial" version="1.0.0">
+      <cz:Operator>spatial_mean</cz:Operator>
+      <cz:FromLevel>CorePatch</cz:FromLevel>
+      <cz:ToLevel>CoastalCell</cz:ToLevel>
+    </cz:AggregationOperator>
+
+    <!-- 解聚算子 -->
+    <cz:DisaggregationOperator id="do-slr-downscale" version="1.0.0">
+      <cz:Operator>bilinear_interpolation</cz:Operator>
+      <cz:FromLevel>CoastalCell</cz:FromLevel>
+      <cz:ToLevel>CorePatch</cz:ToLevel>
+    </cz:DisaggregationOperator>
+
+    <!-- 边界规则 -->
+    <cz:BoundaryRule id="br-open-boundary" version="1.0.0">
+      <cz:BoundaryType>open_ocean</cz:BoundaryType>
+      <cz:Condition>湾口断面采用TPXO9潮汐调和常数作为开边界</cz:Condition>
+    </cz:BoundaryRule>
+  </cz:GranularityPartition>
+
+  <!-- ==================== 组件 6: LayeredClassification ==================== -->
+  <cz:LayeredClassification>
+    <!-- 第一级: 全域 -->
+    <cz:ClassificationLayer id="cl-wd-hzb" version="1.0.0">
+      <cz:Level>WholeDomain</cz:Level>
+      <cz:Code>CZ.WD.HANGZHOU-BAY</cz:Code>
+      <cz:Label>杭州湾全域</cz:Label>
+      <cz:CmecsRef>CMECS_System_Estuarine</cz:CmecsRef>
+      <cz:EdcsRef>ECC_ESTUARY_SYSTEM</cz:EdcsRef>
+    </cz:ClassificationLayer>
+
+    <!-- 第二级: 海岸单元 -->
+    <cz:ClassificationLayer id="cl-cc-north" version="1.0.0">
+      <cz:Level>CoastalCell</cz:Level>
+      <cz:Code>CZ.CC.HZB-NORTH</cz:Code>
+      <cz:Label>杭州湾北岸单元</cz:Label>
+      <cz:CmecsRef>CMECS_Subsystem_North_Shore</cz:CmecsRef>
+      <cz:EdcsRef>ECC_COASTAL_REGION</cz:EdcsRef>
+      <cz:ParentCode>CZ.WD.HANGZHOU-BAY</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <cz:ClassificationLayer id="cl-cc-south" version="1.0.0">
+      <cz:Level>CoastalCell</cz:Level>
+      <cz:Code>CZ.CC.HZB-SOUTH</cz:Code>
+      <cz:Label>杭州湾南岸单元</cz:Label>
+      <cz:CmecsRef>CMECS_Subsystem_South_Shore</cz:CmecsRef>
+      <cz:EdcsRef>ECC_COASTAL_REGION</cz:EdcsRef>
+      <cz:ParentCode>CZ.WD.HANGZHOU-BAY</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <!-- 第三级: 核心斑块 -->
+    <cz:ClassificationLayer id="cl-cp-saltmarsh" version="1.0.0">
+      <cz:Level>CorePatch</cz:Level>
+      <cz:Code>CZ.CP.SALT-MARSH-N</cz:Code>
+      <cz:Label>北岸盐沼湿地核心斑块</cz:Label>
+      <cz:CmecsRef>CMECS_Biotic_Tidal_Flat_Marsh</cz:CmecsRef>
+      <cz:EdcsRef>ECC_SALT_MARSH</cz:EdcsRef>
+      <cz:ParentCode>CZ.CC.HZB-NORTH</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <cz:ClassificationLayer id="cl-cp-seawall" version="1.0.0">
+      <cz:Level>CorePatch</cz:Level>
+      <cz:Code>CZ.CP.SEAWALL-A</cz:Code>
+      <cz:Label>海堤A段防护区</cz:Label>
+      <cz:CmecsRef>CMECS_Geoform_Artificial_Structure</cz:CmecsRef>
+      <cz:EdcsRef>ECC_COASTAL_DEFENSE</cz:EdcsRef>
+      <cz:ParentCode>CZ.CC.HZB-NORTH</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <cz:ClassificationLayer id="cl-cp-landuse" version="1.0.0">
+      <cz:Level>CorePatch</cz:Level>
+      <cz:Code>CZ.CP.LANDUSE-IND</cz:Code>
+      <cz:Label>工业用地核心斑块</cz:Label>
+      <cz:CmecsRef>CMECS_Anthropogenic_Land_Use</cz:CmecsRef>
+      <cz:EdcsRef>ECC_URBAN_INDUSTRIAL</cz:EdcsRef>
+      <cz:ParentCode>CZ.CC.HZB-NORTH</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <!-- 第四级: 基础要素 -->
+    <cz:ClassificationLayer id="cl-be-spartina" version="1.0.0">
+      <cz:Level>BaseElement</cz:Level>
+      <cz:Code>CZ.BE.SPARTINA-ALT</cz:Code>
+      <cz:Label>互花米草群落</cz:Label>
+      <cz:CmecsRef>CMECS_Biotic_Unit_Spartina_alterniflora</cz:CmecsRef>
+      <cz:EdcsRef>EDCS_SPARTINA_ALTERNIFLORA</cz:EdcsRef>
+      <cz:ParentCode>CZ.CP.SALT-MARSH-N</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <cz:ClassificationLayer id="cl-be-mudflat" version="1.0.0">
+      <cz:Level>BaseElement</cz:Level>
+      <cz:Code>CZ.BE.MUDFLAT-01</cz:Code>
+      <cz:Label>泥沙混合光滩</cz:Label>
+      <cz:CmecsRef>CMECS_Substrate_Mud_Sand_Mix</cz:CmecsRef>
+      <cz:EdcsRef>EDCS_FINE_SAND_MUD_MIXTURE</cz:EdcsRef>
+      <cz:ParentCode>CZ.CP.SALT-MARSH-N</cz:ParentCode>
+    </cz:ClassificationLayer>
+
+    <cz:ClassificationLayer id="cl-be-crest" version="1.0.0">
+      <cz:Level>BaseElement</cz:Level>
+      <cz:Code>CZ.BE.SEAWALL-CREST</cz:Code>
+      <cz:Label>海堤堤顶要素</cz:Label>
+      <cz:CmecsRef>CMECS_Geoform_Artificial_Structure</cz:CmecsRef>
+      <cz:EdcsRef>ECC_COASTAL_DEFENSE_STRUCTURE</cz:EdcsRef>
+      <cz:ParentCode>CZ.CP.SEAWALL-A</cz:ParentCode>
+    </cz:ClassificationLayer>
+  </cz:LayeredClassification>
+
+  <!-- ==================== 组件 7: DigitalTwinMapping ==================== -->
+  <cz:DigitalTwinMapping>
+    <!-- 物理资产: 海堤 -->
+    <cz:PhysicalAsset id="pa-seawall-a" version="1.0.0">
+      <cz:AssetType>Coastal_Defense_Structure</cz:AssetType>
+      <cz:Location>120.9E-121.2E, 30.7N-30.9N</cz:Location>
+    </cz:PhysicalAsset>
+
+    <!-- 物理资产: 盐沼湿地 -->
+    <cz:PhysicalAsset id="pa-saltmarsh-n" version="1.0.0">
+      <cz:AssetType>Tidal_Wetland</cz:AssetType>
+      <cz:Location>121.0E-121.3E, 30.8N-31.0N</cz:Location>
+    </cz:PhysicalAsset>
+
+    <!-- 数字副本: FVCOM 水动力模型 -->
+    <cz:DigitalReplica id="dr-fvcom-hzb" version="1.0.0">
+      <cz:ReplicaType>HydrodynamicModel</cz:ReplicaType>
+      <cz:ModelRef>mi-fvcom-hzb</cz:ModelRef>
+    </cz:DigitalReplica>
+
+    <!-- 数字副本: SLAMM 湿地迁移模型 -->
+    <cz:DigitalReplica id="dr-slamm-hzb" version="1.0.0">
+      <cz:ReplicaType>MarshMigrationModel</cz:ReplicaType>
+      <cz:ModelRef>mi-slamm-hzb</cz:ModelRef>
+    </cz:DigitalReplica>
+
+    <!-- 同化绑定 -->
+    <cz:AssimilationBinding id="ab-enkf-ssh" version="1.0.0">
+      <cz:Method>EnsembleKalmanFilter</cz:Method>
+      <cz:ObservationRef>ds-tide-gauge</cz:ObservationRef>
+    </cz:AssimilationBinding>
+
+    <!-- 仿真绑定 -->
+    <cz:SimulationBinding id="sb-fvcom-2050" version="1.0.0">
+      <cz:Engine>FVCOM_v4.1.2</cz:Engine>
+      <cz:TimeHorizon siLength="0" siMass="0" siTime="1">25.0 * year</cz:TimeHorizon>
+    </cz:SimulationBinding>
+
+    <!-- 反馈控制 -->
+    <cz:FeedbackControl id="fc-tide-gate" version="1.0.0">
+      <cz:Controller>PID_TideGateController</cz:Controller>
+      <cz:Actuator>tide_gate_north</cz:Actuator>
+    </cz:FeedbackControl>
+
+    <!-- 状态变量 -->
+    <cz:StateVariable id="sv-ssh" version="1.0.0">
+      <cz:VariableName>sea_surface_height</cz:VariableName>
+      <cz:Unit siLength="1" siMass="0" siTime="0">meter</cz:Unit>
+    </cz:StateVariable>
+
+    <cz:StateVariable id="sv-salinity" version="1.0.0">
+      <cz:VariableName>salinity</cz:VariableName>
+      <cz:Unit siLength="0" siMass="0" siTime="0">psu</cz:Unit>
+    </cz:StateVariable>
+
+    <cz:StateVariable id="sv-temp" version="1.0.0">
+      <cz:VariableName>water_temperature</cz:VariableName>
+      <cz:Unit siLength="0" siMass="0" siTime="0" siTemperature="1">celsius</cz:Unit>
+    </cz:StateVariable>
+
+    <!-- 观测流 -->
+    <cz:ObservationStream id="os-tide-realtime" version="1.0.0">
+      <cz:StreamSource>ds-tide-gauge</cz:StreamSource>
+      <cz:Frequency siLength="0" siMass="0" siTime="1">6.0 * minute</cz:Frequency>
+    </cz:ObservationStream>
+
+    <cz:ObservationStream id="os-satellite-daily" version="1.0.0">
+      <cz:StreamSource>ds-satellite-altimetry</cz:StreamSource>
+      <cz:Frequency siLength="0" siMass="0" siTime="1">1.0 * day</cz:Frequency>
+    </cz:ObservationStream>
+  </cz:DigitalTwinMapping>
+
+  <!-- ==================== 全局扩展槽: 蓝碳计量扩展 ==================== -->
+  <cz:ExtensionSlot>
+    <bc:BlueCarbonAccounting id="bc-hzb-01" version="1.0.0">
+      <bc:CarbonFlux>2.34</bc:CarbonFlux>
+      <bc:CarbonStock>185.6</bc:CarbonStock>
+      <bc:HabitatType>SaltMarsh</bc:HabitatType>
+      <bc:Unit siLength="0" siMass="1" siTime="-2">kgC/(m^2*yr)</bc:Unit>
+    </bc:BlueCarbonAccounting>
+  </cz:ExtensionSlot>
+
+</cz:CZScenario>

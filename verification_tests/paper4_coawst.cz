@@ -1,0 +1,385 @@
+data NetCDFGrid {
+    dimensions: {
+        xi_rho: Int32,      // East-west grid points
+        eta_rho: Int32,     // North-south grid points
+        s_rho: Int32,       // Vertical levels
+        ocean_time: Int32   // Time steps
+    },
+    
+    coordinates: {
+        lon_rho: Array<Float64> with unit degree,
+        lat_rho: Array<Float64> with unit degree,
+        angle: Array<Float64> with unit radian
+    },
+    
+    vertical_transform: {
+        Vtransform: Int32,
+        theta_s: Real,
+        theta_b: Real,
+        Tcline: Real with unit meter,
+        h: Array<Float64> with unit meter
+    }
+}
+
+data ROMSStateVariables {
+    // 2D variables
+    zeta: Array<Float64> with unit meter,
+    ubar: Array<Float64> with unit m/s,
+    vbar: Array<Float64> with unit m/s,
+    
+    // 3D variables (xi, eta, s_rho, time)
+    u: Array<Float64> with unit m/s,
+    v: Array<Float64> with unit m/s,
+    temp: Array<Float64> with unit celsius,
+    salt: Array<Float64> with unit psu,
+    
+    // Sediment variables
+    sand_01: Array<Float64> with unit kg/m^3,
+    sand_02: Array<Float64> with unit kg/m^3,
+    // ... additional sand classes
+    
+    ocean_time: Array<Float64> with unit second
+}
+
+process ScatteredInterpolation {
+    inputs: {
+        source_grid: NetCDFGrid,
+        source_data: ROMSStateVariables,
+        target_grid: NetCDFGrid
+    },
+    
+    outputs: {
+        interpolated_data: ROMSStateVariables
+    },
+    
+    method: "scatteredInterpolant",
+    
+    steps: {
+        step1_preprocess: {
+            apply_mask(source_data, source_grid.masks),
+            fill_nan_values(source_data),
+            flatten_coordinates(source_grid.coordinates)
+        },
+        
+        step2_create_interpolant: {
+            F_3d: ScatteredInterpolant<lon, lat, value>,
+            F_4d: ScatteredInterpolant<lon, lat, depth, value>
+        },
+        
+        step3_interpolate: {
+            zeta_refined = F_3d(target_grid.lon_rho, 
+                               target_grid.lat_rho),
+            temp_refined = F_4d(target_grid.lon_rho, 
+                               target_grid.lat_rho, 
+                               target_grid.z_r)
+        }
+    },
+    
+    constraint MassConservation {
+        integral(source_data.zeta * source_grid.area) 
+            approx_equal 
+        integral(interpolated_data.zeta * target_grid.area)
+    }
+}
+
+process VelocityRotation {
+    inputs: {
+        u_east: Array<Float64> with unit m/s,
+        v_north: Array<Float64> with unit m/s,
+        angle: Array<Float64> with unit radian
+    },
+    
+    outputs: {
+        u_grid: Array<Float64> with unit m/s,
+        v_grid: Array<Float64> with unit m/s
+    },
+    
+    transform: {
+        u_grid = u_east * cos(angle) + v_north * sin(angle),
+        v_grid = v_north * cos(angle) - u_east * sin(angle)
+    },
+    
+    inverse_transform: {
+        u_east = u_grid * cos(angle) - v_grid * sin(angle),
+        v_north = u_grid * sin(angle) + v_grid * cos(angle)
+    }
+}
+
+process GridStaggering {
+    method rho2u(data_rho: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_rho[i,:] + data_rho[i+1,:])
+    },
+    
+    method rho2v(data_rho: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_rho[:,j] + data_rho[:,j+1])
+    },
+    
+    method u2rho(data_u: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_u[i-1,:] + data_u[i,:])
+    },
+    
+    method v2rho(data_v: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_v[:,j-1] + data_v[:,j])
+    }
+}
+
+workflow BoundaryConditionGeneration {
+    inputs: {
+        coarse_grid_file: "bbleh_grid_073d.nc",
+        coarse_solution_url: "http://...bbleh.ncml",
+        refined_grid_file: "bbleh_reedy_grd.nc",
+        time_range: {
+            start: DateTime("2015-04-15"),
+            end: DateTime("2015-04-19")
+        }
+    },
+    
+    outputs: {
+        boundary_file: "reedy_bry.nc"
+    },
+    
+    pipeline: {
+        stage1_prepare: {
+            description: "Create scattered interpolants",
+            F_3d = create_interpolant_3d(coarse_grid, sample_data),
+            F_4d = create_interpolant_4d(coarse_grid, sample_data),
+            save("3dvar_coarse.mat", F_3d),
+            save("4dvar_coarse.mat", F_4d)
+        },
+        
+        stage2_north_boundary: {
+            description: "Generate north boundary conditions",
+            for time_step in time_range {
+                // Read coarse grid data
+                coarse_data = read_time_step(time_step),
+                
+                // Interpolate 2D variables
+                zeta_refined = interpolate_3d(F_3d, refined_grid),
+                
+                // Process velocities with rotation
+                [u_east, v_north] = rotate_to_geographic(
+                    coarse_data.ubar, coarse_data.vbar, 
+                    coarse_grid.angle
+                ),
+                
+                // Interpolate and rotate back
+                [u_refined, v_refined] = interpolate_and_rotate(
+                    u_east, v_north, refined_grid.angle
+                ),
+                
+                // Extract north boundary
+                boundary_north[time_step] = extract_boundary(
+                    zeta_refined, u_refined, v_refined, 
+                    direction: "north"
+                )
+            }
+        },
+        
+        stage3_east_boundary: { /* Similar for east */ },
+        stage4_west_boundary: { /* Similar for west */ },
+        
+        stage5_write_output: {
+            create_netcdf_boundary_file(
+                boundary_file, refined_grid, 
+                time_range, boundaries
+            )
+        }
+    },
+    
+    dataflow: {
+        coarse_solution_url -> stage1_prepare -> [F_3d, F_4d],
+        [F_3d, F_4d] -> stage2_north_boundary -> boundary_north,
+        boundary_north -> stage3_east_boundary -> boundaries,
+        boundaries -> stage5_write_output -> boundary_file
+    }
+}
+
+model GridNestingSystem {
+    coarse_grid: NetCDFGrid with {
+        resolution: 100 * meter,
+        domain: "Barnegat Bay Outer Domain"
+    },
+    
+    refined_grid: NetCDFGrid with {
+        resolution: 20 * meter,
+        domain: "Reedy Creek Refined Domain",
+        nested_within: coarse_grid
+    },
+    
+    nesting_ratio: 5,
+    
+    constraint SpatialNesting {
+        refined_grid.lon_rho subset coarse_grid.lon_rho,
+        refined_grid.lat_rho subset coarse_grid.lat_rho,
+        refined_grid.resolution = 
+            coarse_grid.resolution / nesting_ratio
+    }
+}
+
+process GridAdjustment {
+    quality_checks: {
+        orthogonality: {
+            metric: "Angle between grid lines",
+            threshold: 85 * degree,
+            action: "Adjust grid points"
+        },
+        
+        smoothness: {
+            metric: "Grid spacing variation ratio",
+            threshold: 0.2,
+            action: "Smooth grid spacing"
+        },
+        
+        bathymetry_gradient: {
+            metric: "rx0 = |h_{i+1} - h_i| / (h_{i+1} + h_i)",
+            threshold: 0.2,
+            action: "Smooth bathymetry"
+        }
+    }
+}
+
+model COAWSTCoupledSystem {
+    components: {
+        roms: {
+            type: "Regional Ocean Modeling System",
+            domain: GridNestingSystem,
+            physics: ["hydrodynamics", "temperature", 
+                     "salinity", "sediment_transport"],
+            resolution: {
+                horizontal: 20..100 * meter,
+                vertical: 7 * levels,
+                temporal: 1 * second
+            }
+        },
+        
+        swan: {
+            type: "Simulating WAves Nearshore",
+            coupling: "Two-way with ROMS",
+            physics: ["wave_generation", "wave_propagation", 
+                     "wave_breaking"]
+        }
+    },
+    
+    coupling: {
+        roms_swan_interface: Interface<ROMS, SWAN> {
+            roms_to_swan: {
+                water_level: zeta with unit meter,
+                current_velocity: [u, v] with unit m/s,
+                water_depth: h + zeta with unit meter
+            },
+            
+            swan_to_roms: {
+                wave_height: Hsig with unit meter,
+                wave_direction: Dir with unit degree,
+                wave_dissipation: dissipation with unit watt/m^2,
+                wave_induced_stress: [tau_x, tau_y] 
+                    with unit pascal
+            },
+            
+            coupling_interval: 600 * second
+        }
+    }
+}
+
+scenario BarnegatBayReedyCreekSimulation {
+    description: "Estuarine wetland nested simulation",
+    
+    domain: {
+        outer_domain: {
+            name: "Barnegat Bay",
+            resolution: 100 * meter,
+            grid_size: [nx: 200, ny: 300],
+            features: ["barrier_island", "tidal_inlets", 
+                      "back_bay", "wetlands"]
+        },
+        
+        inner_domain: {
+            name: "Reedy Creek",
+            resolution: 20 * meter,
+            grid_size: [nx: 150, ny: 200],
+            features: ["tidal_creek", "salt_marsh", 
+                      "vegetation"]
+        }
+    },
+    
+    configuration: {
+        time_period: {
+            start: DateTime("2015-04-15"),
+            end: DateTime("2015-04-19"),
+            duration: 4 * day
+        },
+        
+        forcing: {
+            tides: "TPXO global tidal model",
+            wind: "NARR atmospheric reanalysis",
+            waves: "WaveWatch III boundary conditions",
+            river_discharge: "USGS gauge data"
+        },
+        
+        physics: {
+            vertical_mixing: "GLS turbulence closure",
+            bottom_friction: "Quadratic drag with vegetation",
+            sediment_transport: "5 sand classes (63-2000 um)",
+            wetting_drying: "Enabled for marsh inundation"
+        }
+    },
+    
+    objectives: {
+        hydrodynamics: "Tidal circulation in marsh creeks",
+        sediment_dynamics: "Sediment exchange bay-marsh",
+        vegetation_impact: "Vegetation effects on flow",
+        storm_response: "Marsh resilience to storms"
+    },
+    
+    workflow: {
+        step1: run_coarse_simulation(outer_domain),
+        step2: generate_boundaries(outer_domain, inner_domain),
+        step3: run_refined_simulation(inner_domain),
+        step4: analyze_results(COAWSTDashboard)
+    }
+}
+
+digital_twin COAWSTDashboard {
+    description: "Interactive COAWST/ROMS visualization",
+    
+    data_sources: {
+        model_output: "COAWST NetCDF output files",
+        grid_file: "ROMS curvilinear orthogonal grid",
+        observation_data: "In-situ and remote sensing"
+    },
+    
+    visualization: {
+        grid_viewer: {
+            display: "Curvilinear grid structure",
+            features: ["bathymetry", "land_mask", 
+                      "grid_metrics"]
+        },
+        
+        time_series_viewer: {
+            variables: ["zeta", "temperature", 
+                       "salinity", "currents"],
+            locations: "User-selected points or transects",
+            comparison: "Model vs observations"
+        },
+        
+        spatial_viewer: {
+            display: "2D horizontal slices or 3D volumes",
+            variables: ["SST", "SSH", "velocity", 
+                       "wave_height"],
+            animation: "Time evolution"
+        }
+    },
+    
+    interactions: {
+        point_selection: "Click to extract time series",
+        transect_drawing: "Draw line for cross-section",
+        time_slider: "Navigate through simulation time",
+        variable_selector: "Switch between variables"
+    },
+    
+    implementation: {
+        backend: "Python with xarray, netCDF4",
+        frontend: "Jupyter notebook with hvPlot, Panel",
+        deployment: "Binder for cloud execution"
+    }
+}

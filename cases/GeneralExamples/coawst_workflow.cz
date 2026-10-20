@@ -1,0 +1,866 @@
+// COAWST工作流案例 - COAWST Workflow Case Study
+// 使用CZ-DSL描述COAWST模型耦合系统的数据流和处理流程
+// Using CZ-DSL to describe COAWST coupled modeling system data flow and processing
+
+// ============================================================================
+// 第一部分：数据格式定义 - Part 1: Data Format Definitions
+// ============================================================================
+
+// NetCDF数据格式定义 - NetCDF Data Format Definition
+data NetCDFGrid {
+    // 网格维度 - Grid dimensions
+    dimensions: {
+        xi_rho: Int32,      // 东西方向网格点数 - East-west grid points
+        eta_rho: Int32,     // 南北方向网格点数 - North-south grid points
+        xi_u: Int32,        // U速度点数 - U velocity points
+        eta_v: Int32,       // V速度点数 - V velocity points
+        s_rho: Int32,       // 垂向层数 - Vertical levels
+        ocean_time: Int32   // 时间步数 - Time steps
+    },
+    
+    // 空间坐标 - Spatial coordinates
+    coordinates: {
+        lon_rho: Array<Float64> with unit degree,
+        lat_rho: Array<Float64> with unit degree,
+        lon_u: Array<Float64> with unit degree,
+        lat_u: Array<Float64> with unit degree,
+        lon_v: Array<Float64> with unit degree,
+        lat_v: Array<Float64> with unit degree,
+        angle: Array<Float64> with unit radian  // 网格旋转角 - Grid rotation angle
+    },
+    
+    // 垂向坐标参数 - Vertical coordinate parameters
+    vertical_transform: {
+        Vtransform: Int32,      // 垂向变换类型 - Vertical transformation type
+        Vstretching: Int32,     // 垂向拉伸函数 - Vertical stretching function
+        theta_s: Real,          // 表层控制参数 - Surface control parameter
+        theta_b: Real,          // 底层控制参数 - Bottom control parameter
+        Tcline: Real with unit meter,  // 温跃层深度 - Thermocline depth
+        hc: Real with unit meter,      // 临界深度 - Critical depth
+        h: Array<Float64> with unit meter  // 水深 - Bathymetry
+    },
+    
+    // 掩膜数组 - Mask arrays
+    masks: {
+        mask_rho: Array<Int32>,  // RHO点掩膜 - RHO point mask
+        mask_u: Array<Int32>,    // U点掩膜 - U point mask
+        mask_v: Array<Int32>     // V点掩膜 - V point mask
+    }
+}
+
+// ROMS海洋状态变量 - ROMS Ocean State Variables
+data ROMSStateVariables {
+    // 2D变量 - 2D variables
+    zeta: Array<Float64> with unit meter,           // 海表面高度 - Sea surface height
+    ubar: Array<Float64> with unit m/s,             // 深度平均U速度 - Depth-averaged U velocity
+    vbar: Array<Float64> with unit m/s,             // 深度平均V速度 - Depth-averaged V velocity
+    
+    // 3D变量 - 3D variables (xi, eta, s_rho, time)
+    u: Array<Float64> with unit m/s,                // 东向速度 - Eastward velocity
+    v: Array<Float64> with unit m/s,                // 北向速度 - Northward velocity
+    temp: Array<Float64> with unit celsius,         // 温度 - Temperature
+    salt: Array<Float64> with unit psu,             // 盐度 - Salinity
+    
+    // 沉积物变量 - Sediment variables
+    sand_01: Array<Float64> with unit kg/m^3,       // 沙粒级配1 - Sand class 1
+    sand_02: Array<Float64> with unit kg/m^3,
+    sand_03: Array<Float64> with unit kg/m^3,
+    sand_04: Array<Float64> with unit kg/m^3,
+    sand_05: Array<Float64> with unit kg/m^3,
+    
+    // 时间坐标 - Time coordinate
+    ocean_time: Array<Float64> with unit second     // 模拟时间 - Simulation time
+}
+
+// 边界条件数据 - Boundary Condition Data
+data BoundaryCondition {
+    boundaries: {
+        north: BoundaryData,
+        south: BoundaryData,
+        east: BoundaryData,
+        west: BoundaryData
+    }
+}
+
+data BoundaryData {
+    // 2D边界变量 - 2D boundary variables
+    zeta: Array<Float64> with unit meter,
+    ubar: Array<Float64> with unit m/s,
+    vbar: Array<Float64> with unit m/s,
+    
+    // 3D边界变量 - 3D boundary variables
+    u: Array<Float64> with unit m/s,
+    v: Array<Float64> with unit m/s,
+    temp: Array<Float64> with unit celsius,
+    salt: Array<Float64> with unit psu,
+    
+    // 沉积物边界 - Sediment boundaries
+    sand_01: Array<Float64> with unit kg/m^3,
+    sand_02: Array<Float64> with unit kg/m^3,
+    sand_03: Array<Float64> with unit kg/m^3,
+    sand_04: Array<Float64> with unit kg/m^3,
+    sand_05: Array<Float64> with unit kg/m^3
+}
+
+// SWAN波浪模型数据 - SWAN Wave Model Data
+data SWANWaveData {
+    // 波浪参数 - Wave parameters
+    Hsig: Array<Float64> with unit meter,           // 有效波高 - Significant wave height
+    Dir: Array<Float64> with unit degree,           // 波向 - Wave direction
+    Pdir: Array<Float64> with unit degree,          // 主波向 - Peak direction
+    Tps: Array<Float64> with unit second,           // 峰值周期 - Peak period
+    Tm01: Array<Float64> with unit second,          // 平均周期 - Mean period
+    
+    // TPAR边界谱 - TPAR boundary spectrum
+    tpar_spectrum: {
+        frequency: Array<Float64> with unit Hz,
+        direction: Array<Float64> with unit degree,
+        energy_density: Array<Float64> with unit m^2/Hz
+    }
+}
+
+// ============================================================================
+// 第二部分：处理流程定义 - Part 2: Processing Workflow Definitions
+// ============================================================================
+
+// 网格嵌套系统 - Grid Nesting System
+model GridNestingSystem {
+    // 粗网格（外层） - Coarse grid (outer)
+    coarse_grid: NetCDFGrid with {
+        resolution: 100 * meter,
+        domain: "Barnegat Bay Outer Domain"
+    },
+    
+    // 细网格（内层） - Fine grid (inner/refined)
+    refined_grid: NetCDFGrid with {
+        resolution: 20 * meter,
+        domain: "Reedy Creek Refined Domain",
+        nested_within: coarse_grid
+    },
+    
+    // 嵌套关系 - Nesting relationship
+    nesting_ratio: 5,  // 网格比例 - Grid ratio
+    
+    // 空间关系约束 - Spatial relationship constraint
+    constraint SpatialNesting {
+        refined_grid.lon_rho ⊂ coarse_grid.lon_rho,
+        refined_grid.lat_rho ⊂ coarse_grid.lat_rho,
+        refined_grid.resolution = coarse_grid.resolution / nesting_ratio
+    }
+}
+
+// 散点插值过程 - Scattered Interpolation Process
+process ScatteredInterpolation {
+    inputs: {
+        source_grid: NetCDFGrid,
+        source_data: ROMSStateVariables,
+        target_grid: NetCDFGrid
+    },
+    
+    outputs: {
+        interpolated_data: ROMSStateVariables
+    },
+    
+    // 插值方法 - Interpolation method
+    method: "scatteredInterpolant",
+    
+    // 处理步骤 - Processing steps
+    steps: {
+        // Step 1: 数据预处理 - Data preprocessing
+        step1_preprocess: {
+            // 应用掩膜 - Apply mask
+            apply_mask(source_data, source_grid.masks),
+            
+            // 填充NaN值 - Fill NaN values using maplev
+            fill_nan_values(source_data),
+            
+            // 展平为1D数组 - Flatten to 1D arrays
+            flatten_coordinates(source_grid.coordinates),
+            flatten_data(source_data)
+        },
+        
+        // Step 2: 创建插值函数 - Create interpolation function
+        step2_create_interpolant: {
+            // 3D变量插值器 - 3D variable interpolator
+            F_3d: ScatteredInterpolant<lon, lat, value>,
+            
+            // 4D变量插值器 - 4D variable interpolator
+            F_4d: ScatteredInterpolant<lon, lat, depth, value>
+        },
+        
+        // Step 3: 执行插值 - Execute interpolation
+        step3_interpolate: {
+            // 插值2D变量 - Interpolate 2D variables
+            zeta_refined = F_3d(target_grid.lon_rho, target_grid.lat_rho),
+            
+            // 插值3D变量 - Interpolate 3D variables
+            temp_refined = F_4d(target_grid.lon_rho, target_grid.lat_rho, target_grid.z_r),
+            salt_refined = F_4d(target_grid.lon_rho, target_grid.lat_rho, target_grid.z_r),
+            u_refined = F_4d(target_grid.lon_rho, target_grid.lat_rho, target_grid.z_r),
+            v_refined = F_4d(target_grid.lon_rho, target_grid.lat_rho, target_grid.z_r)
+        }
+    },
+    
+    // 物理约束 - Physical constraints
+    constraint MassConservation {
+        ∫(source_data.zeta * source_grid.area) ≈ ∫(interpolated_data.zeta * target_grid.area)
+    }
+}
+
+// 速度旋转变换 - Velocity Rotation Transform
+process VelocityRotation {
+    inputs: {
+        u_east: Array<Float64> with unit m/s,    // 东向速度 - Eastward velocity
+        v_north: Array<Float64> with unit m/s,   // 北向速度 - Northward velocity
+        angle: Array<Float64> with unit radian   // 网格旋转角 - Grid rotation angle
+    },
+    
+    outputs: {
+        u_grid: Array<Float64> with unit m/s,    // 网格坐标系U速度 - Grid-aligned U velocity
+        v_grid: Array<Float64> with unit m/s     // 网格坐标系V速度 - Grid-aligned V velocity
+    },
+    
+    // 旋转公式 - Rotation formula
+    transform: {
+        // 地理坐标到网格坐标 - Geographic to grid coordinates
+        u_grid = u_east * cos(angle) + v_north * sin(angle),
+        v_grid = v_north * cos(angle) - u_east * sin(angle)
+    },
+    
+    // 逆变换 - Inverse transform
+    inverse_transform: {
+        // 网格坐标到地理坐标 - Grid to geographic coordinates
+        u_east = u_grid * cos(angle) - v_grid * sin(angle),
+        v_north = u_grid * sin(angle) + v_grid * cos(angle)
+    }
+}
+
+// 网格点类型转换 - Grid Point Type Conversion
+process GridStaggering {
+    // RHO点到U点 - RHO to U point conversion
+    method rho2u(data_rho: Array<Float64>): Array<Float64> {
+        // 平均相邻RHO点 - Average adjacent RHO points
+        return 0.5 * (data_rho[i,:] + data_rho[i+1,:])
+    },
+    
+    // RHO点到V点 - RHO to V point conversion
+    method rho2v(data_rho: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_rho[:,j] + data_rho[:,j+1])
+    },
+    
+    // U点到RHO点 - U to RHO point conversion
+    method u2rho(data_u: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_u[i-1,:] + data_u[i,:])
+    },
+    
+    // V点到RHO点 - V to RHO point conversion
+    method v2rho(data_v: Array<Float64>): Array<Float64> {
+        return 0.5 * (data_v[:,j-1] + data_v[:,j])
+    }
+}
+
+// 垂向坐标计算 - Vertical Coordinate Calculation
+process VerticalCoordinateTransform {
+    inputs: {
+        h: Array<Float64> with unit meter,          // 水深 - Bathymetry
+        zeta: Array<Float64> with unit meter,       // 海表面高度 - Sea surface height
+        Vtransform: Int32,
+        Vstretching: Int32,
+        theta_s: Real,
+        theta_b: Real,
+        hc: Real with unit meter,
+        N: Int32                                     // 垂向层数 - Number of vertical levels
+    },
+    
+    outputs: {
+        z_r: Array<Float64> with unit meter,        // RHO点深度 - Depth at RHO points
+        z_w: Array<Float64> with unit meter         // W点深度 - Depth at W points
+    },
+    
+    // S坐标变换 - S-coordinate transformation
+    method set_depth(): Array<Float64> {
+        // 计算S坐标 - Calculate S-coordinates
+        s_rho = compute_s_coordinate(N, theta_s, theta_b, Vstretching),
+        
+        // 根据变换类型计算深度 - Calculate depth based on transform type
+        if Vtransform == 1 {
+            z_r = hc * s_rho + (h - hc) * C(s_rho) + zeta * (1 + hc * s_rho + (h - hc) * C(s_rho) / h)
+        } else if Vtransform == 2 {
+            z_r = zeta + (zeta + h) * (hc * s_rho + h * C(s_rho)) / (hc + h)
+        }
+    }
+}
+
+// ============================================================================
+// 第三部分：完整工作流定义 - Part 3: Complete Workflow Definition
+// ============================================================================
+
+// COAWST边界条件生成工作流 - COAWST Boundary Condition Generation Workflow
+workflow BoundaryConditionGeneration {
+    // 输入数据源 - Input data sources
+    inputs: {
+        coarse_grid_file: "bbleh_grid_073d.nc",
+        coarse_solution_url: "http://geoport.whoi.edu/thredds/dodsC/.../bbleh.ncml",
+        refined_grid_file: "bbleh_reedy_grd.nc",
+        time_range: {
+            start: DateTime("2015-04-15"),
+            end: DateTime("2015-04-19")
+        }
+    },
+    
+    // 输出文件 - Output files
+    outputs: {
+        boundary_file: "reedy_bry.nc",
+        initial_file: "reedy_init.nc"
+    },
+    
+    // 工作流步骤 - Workflow steps
+    pipeline: {
+        // 阶段1：准备插值函数 - Stage 1: Prepare interpolation functions
+        stage1_prepare: {
+            description: "创建散点插值函数并保存 - Create scattered interpolants and save",
+            
+            // 读取粗网格数据 - Read coarse grid data
+            coarse_grid = read_netcdf(coarse_grid_file),
+            coarse_solution = read_opendap(coarse_solution_url),
+            
+            // 读取细网格 - Read refined grid
+            refined_grid = read_netcdf(refined_grid_file),
+            
+            // 提取单个时间步 - Extract single time step
+            sample_time = time_range.start,
+            sample_data = coarse_solution.at_time(sample_time),
+            
+            // 创建3D插值函数（用于zeta） - Create 3D interpolant (for zeta)
+            F_3d = create_scattered_interpolant_3d(
+                coarse_grid.lon_rho,
+                coarse_grid.lat_rho,
+                sample_data.zeta
+            ),
+            save("3dvar_bbleh_coarse.mat", F_3d),
+            
+            // 创建4D插值函数（用于temp, salt, u, v等） - Create 4D interpolant
+            z_coarse = compute_vertical_coordinates(coarse_grid, sample_data.zeta),
+            F_4d = create_scattered_interpolant_4d(
+                coarse_grid.lon_rho,
+                coarse_grid.lat_rho,
+                z_coarse,
+                sample_data.temp
+            ),
+            save("4dvar_bbleh_coarse.mat", F_4d)
+        },
+        
+        // 阶段2：生成北边界条件 - Stage 2: Generate north boundary conditions
+        stage2_north_boundary: {
+            description: "插值并生成北边界数据 - Interpolate and generate north boundary data",
+            
+            // 加载插值函数 - Load interpolation functions
+            F_3d = load("3dvar_bbleh_coarse.mat"),
+            F_4d = load("4dvar_bbleh_coarse.mat"),
+            
+            // 时间循环 - Time loop
+            for time_step in time_range {
+                // 读取粗网格时间步数据 - Read coarse grid time step data
+                coarse_data = coarse_solution.at_time(time_step),
+                
+                // 计算垂向坐标 - Calculate vertical coordinates
+                z_coarse = VerticalCoordinateTransform.set_depth(
+                    coarse_grid.h,
+                    coarse_data.zeta,
+                    coarse_grid.Vtransform,
+                    coarse_grid.Vstretching,
+                    coarse_grid.theta_s,
+                    coarse_grid.theta_b,
+                    coarse_grid.hc,
+                    coarse_grid.N
+                ),
+                
+                z_refined = VerticalCoordinateTransform.set_depth(
+                    refined_grid.h,
+                    refined_data.zeta,
+                    refined_grid.Vtransform,
+                    refined_grid.Vstretching,
+                    refined_grid.theta_s,
+                    refined_grid.theta_b,
+                    refined_grid.hc,
+                    refined_grid.N
+                ),
+                
+                // 插值2D变量 - Interpolate 2D variables
+                zeta_refined = ScatteredInterpolation.interpolate_3d(
+                    F_3d,
+                    refined_grid.lon_rho,
+                    refined_grid.lat_rho,
+                    coarse_data.zeta
+                ),
+                
+                // 速度处理：U点到RHO点 - Velocity processing: U to RHO
+                ubar_rho = GridStaggering.u2rho(coarse_data.ubar),
+                vbar_rho = GridStaggering.v2rho(coarse_data.vbar),
+                
+                // 速度旋转：网格坐标到地理坐标 - Velocity rotation: grid to geographic
+                [ubar_east, vbar_north] = VelocityRotation.inverse_transform(
+                    ubar_rho,
+                    vbar_rho,
+                    coarse_grid.angle
+                ),
+                
+                // 插值速度 - Interpolate velocities
+                ubar_east_refined = ScatteredInterpolation.interpolate_3d(
+                    F_3d,
+                    refined_grid.lon_rho,
+                    refined_grid.lat_rho,
+                    ubar_east
+                ),
+                
+                vbar_north_refined = ScatteredInterpolation.interpolate_3d(
+                    F_3d,
+                    refined_grid.lon_rho,
+                    refined_grid.lat_rho,
+                    vbar_north
+                ),
+                
+                // 速度旋转：地理坐标到细网格坐标 - Velocity rotation: geographic to refined grid
+                [ubar_refined, vbar_refined] = VelocityRotation.transform(
+                    ubar_east_refined,
+                    vbar_north_refined,
+                    refined_grid.angle
+                ),
+                
+                // 转换到交错网格点 - Convert to staggered grid points
+                ubar_refined_u = GridStaggering.rho2u(ubar_refined),
+                vbar_refined_v = GridStaggering.rho2v(vbar_refined),
+                
+                // 提取北边界 - Extract north boundary
+                zeta_north[time_step] = zeta_refined[:, end],
+                ubar_north[time_step] = ubar_refined_u[:, end],
+                vbar_north[time_step] = vbar_refined_v[:, end],
+                
+                // 插值3D变量 - Interpolate 3D variables
+                for variable in [u, v, temp, salt, sand_01, sand_02, sand_03, sand_04, sand_05] {
+                    // 处理3D速度 - Process 3D velocities
+                    if variable in [u, v] {
+                        var_rho = GridStaggering.to_rho(coarse_data[variable]),
+                        [var_east, var_north] = VelocityRotation.inverse_transform(
+                            var_rho,
+                            coarse_grid.angle
+                        )
+                    } else {
+                        var_data = coarse_data[variable]
+                    },
+                    
+                    // 4D插值 - 4D interpolation
+                    var_refined = ScatteredInterpolation.interpolate_4d(
+                        F_4d,
+                        refined_grid.lon_rho,
+                        refined_grid.lat_rho,
+                        z_refined,
+                        var_data
+                    ),
+                    
+                    // 速度旋转和网格转换 - Velocity rotation and grid conversion
+                    if variable in [u, v] {
+                        var_refined = VelocityRotation.transform(var_refined, refined_grid.angle),
+                        var_refined = GridStaggering.rho2staggered(var_refined)
+                    },
+                    
+                    // 提取北边界 - Extract north boundary
+                    boundary_north[variable][time_step] = var_refined[:, end, :]
+                }
+            }
+        },
+        
+        // 阶段3：生成东边界条件 - Stage 3: Generate east boundary conditions
+        stage3_east_boundary: {
+            description: "追加东边界数据到边界文件 - Append east boundary data to boundary file",
+            // 类似stage2的处理流程，但提取东边界 - Similar to stage2, but extract east boundary
+            // boundary_east[variable][time_step] = var_refined[end, :, :]
+        },
+        
+        // 阶段4：生成西边界条件 - Stage 4: Generate west boundary conditions
+        stage4_west_boundary: {
+            description: "追加西边界数据到边界文件 - Append west boundary data to boundary file",
+            // 类似stage2的处理流程，但提取西边界 - Similar to stage2, but extract west boundary
+            // boundary_west[variable][time_step] = var_refined[1, :, :]
+        },
+        
+        // 阶段5：写入NetCDF文件 - Stage 5: Write NetCDF file
+        stage5_write_output: {
+            description: "创建并写入边界条件NetCDF文件 - Create and write boundary condition NetCDF file",
+            
+            // 创建NetCDF文件结构 - Create NetCDF file structure
+            create_netcdf_boundary_file(
+                filename: boundary_file,
+                grid: refined_grid,
+                time: time_range,
+                boundaries: {
+                    north: boundary_north,
+                    south: boundary_south,
+                    east: boundary_east,
+                    west: boundary_west
+                }
+            )
+        }
+    },
+    
+    // 数据流图 - Data flow diagram
+    dataflow: {
+        coarse_solution_url → stage1_prepare → [F_3d, F_4d],
+        [F_3d, F_4d] → stage2_north_boundary → boundary_north,
+        boundary_north → stage3_east_boundary → [boundary_north, boundary_east],
+        [boundary_north, boundary_east] → stage4_west_boundary → [boundary_north, boundary_east, boundary_west],
+        [boundary_north, boundary_east, boundary_west] → stage5_write_output → boundary_file
+    }
+}
+
+// ============================================================================
+// 第四部分：可视化和分析工具 - Part 4: Visualization and Analysis Tools
+// ============================================================================
+
+// COAWST仪表板系统 - COAWST Dashboard System
+digital_twin COAWSTDashboard {
+    description: "交互式COAWST/ROMS模型可视化仪表板 - Interactive COAWST/ROMS model visualization dashboard",
+    
+    // 数据源 - Data sources
+    data_sources: {
+        model_output: "COAWST NetCDF output files",
+        grid_file: "ROMS curvilinear orthogonal grid",
+        observation_data: "In-situ and remote sensing observations"
+    },
+    
+    // 可视化组件 - Visualization components
+    visualization: {
+        // 网格可视化 - Grid visualization
+        grid_viewer: {
+            display: "Curvilinear orthogonal grid structure",
+            features: ["bathymetry", "land mask", "grid metrics"]
+        },
+        
+        // 时间序列可视化 - Time series visualization
+        time_series_viewer: {
+            variables: ["zeta", "temperature", "salinity", "currents"],
+            locations: "User-selected points or transects",
+            comparison: "Model vs observations"
+        },
+        
+        // 空间场可视化 - Spatial field visualization
+        spatial_viewer: {
+            display: "2D horizontal slices or 3D volumes",
+            variables: ["SST", "SSH", "velocity", "wave height"],
+            animation: "Time evolution"
+        },
+        
+        // 垂向剖面 - Vertical profiles
+        profile_viewer: {
+            display: "Temperature, salinity, velocity profiles",
+            locations: "Transects across domain"
+        }
+    },
+    
+    // 交互功能 - Interactive features
+    interactions: {
+        point_selection: "Click to extract time series",
+        transect_drawing: "Draw line for cross-section",
+        layer_selection: "Choose vertical level",
+        time_slider: "Navigate through simulation time",
+        variable_selector: "Switch between variables"
+    },
+    
+    // 技术栈 - Technology stack
+    implementation: {
+        backend: "Python with xarray, netCDF4",
+        frontend: "Jupyter notebook with hvPlot, Panel",
+        deployment: "Binder for cloud execution"
+    }
+}
+
+// 网格调整工具 - Grid Adjustment Tool
+process GridAdjustment {
+    description: "ROMS网格质量检查和调整工具 - ROMS grid quality check and adjustment tool",
+    
+    inputs: {
+        grid_file: NetCDFGrid
+    },
+    
+    outputs: {
+        adjusted_grid: NetCDFGrid,
+        quality_report: GridQualityMetrics
+    },
+    
+    // 网格质量指标 - Grid quality metrics
+    quality_checks: {
+        // 正交性检查 - Orthogonality check
+        orthogonality: {
+            metric: "Angle between grid lines",
+            threshold: 85 * degree,  // 应接近90度 - Should be close to 90 degrees
+            action: "Adjust grid points to improve orthogonality"
+        },
+        
+        // 平滑性检查 - Smoothness check
+        smoothness: {
+            metric: "Grid spacing variation ratio",
+            threshold: 0.2,  // r = |Δx_{i+1} - Δx_i| / Δx_i < 0.2
+            action: "Smooth grid spacing transitions"
+        },
+        
+        // 纵横比检查 - Aspect ratio check
+        aspect_ratio: {
+            metric: "Δx / Δy ratio",
+            threshold: [0.5, 2.0],  // 应在合理范围内 - Should be in reasonable range
+            action: "Adjust grid to balance resolution"
+        },
+        
+        // 水深梯度检查 - Bathymetry gradient check
+        bathymetry_gradient: {
+            metric: "rx0 = |h_{i+1} - h_i| / (h_{i+1} + h_i)",
+            threshold: 0.2,  // ROMS稳定性要求 - ROMS stability requirement
+            action: "Smooth bathymetry to reduce steep gradients"
+        }
+    },
+    
+    // 自动调整算法 - Automatic adjustment algorithms
+    adjustment_methods: {
+        laplacian_smoothing: "Iterative grid point relaxation",
+        bathymetry_smoothing: "Shapiro filter for depth smoothing",
+        boundary_preservation: "Maintain coastline and domain boundaries"
+    }
+}
+
+// ============================================================================
+// 第五部分：完整系统集成 - Part 5: Complete System Integration
+// ============================================================================
+
+// COAWST耦合建模系统 - COAWST Coupled Modeling System
+model COAWSTCoupledSystem {
+    description: "海洋-大气-波浪-沉积物耦合建模系统 - Ocean-Atmosphere-Wave-Sediment coupled modeling system",
+    
+    // 模型组件 - Model components
+    components: {
+        // ROMS海洋模型 - ROMS ocean model
+        roms: {
+            type: "Regional Ocean Modeling System",
+            domain: GridNestingSystem,
+            physics: ["hydrodynamics", "temperature", "salinity", "sediment_transport"],
+            resolution: {
+                horizontal: 20..100 * meter,
+                vertical: 7 * levels,
+                temporal: 1 * second
+            }
+        },
+        
+        // SWAN波浪模型 - SWAN wave model
+        swan: {
+            type: "Simulating WAves Nearshore",
+            coupling: "Two-way with ROMS",
+            physics: ["wave_generation", "wave_propagation", "wave_breaking"],
+            boundary_forcing: SWANWaveData.tpar_spectrum
+        },
+        
+        // WRF大气模型（可选） - WRF atmospheric model (optional)
+        wrf: {
+            type: "Weather Research and Forecasting",
+            coupling: "One-way to ROMS/SWAN",
+            provides: ["wind", "pressure", "heat_flux", "precipitation"]
+        }
+    },
+    
+    // 耦合接口 - Coupling interfaces
+    coupling: {
+        // ROMS-SWAN耦合 - ROMS-SWAN coupling
+        roms_swan_interface: Interface<ROMS, SWAN> {
+            // ROMS提供给SWAN - ROMS provides to SWAN
+            roms_to_swan: {
+                water_level: zeta with unit meter,
+                current_velocity: [u, v] with unit m/s,
+                water_depth: h + zeta with unit meter
+            },
+            
+            // SWAN提供给ROMS - SWAN provides to ROMS
+            swan_to_roms: {
+                wave_height: Hsig with unit meter,
+                wave_direction: Dir with unit degree,
+                wave_period: Tps with unit second,
+                wave_dissipation: dissipation with unit watt/m^2,
+                wave_induced_stress: [tau_x, tau_y] with unit pascal
+            },
+            
+            // 耦合频率 - Coupling frequency
+            coupling_interval: 600 * second  // 每10分钟交换一次 - Exchange every 10 minutes
+        },
+        
+        // 嵌套网格耦合 - Nested grid coupling
+        nesting_interface: Interface<CoarseGrid, RefinedGrid> {
+            boundary_forcing: BoundaryConditionGeneration,
+            update_frequency: 3600 * second  // 每小时更新边界 - Update boundary every hour
+        }
+    },
+    
+    // 工作流编排 - Workflow orchestration
+    execution: {
+        // 预处理阶段 - Preprocessing phase
+        preprocessing: {
+            grid_generation: "Create or adjust ROMS grid",
+            grid_quality_check: GridAdjustment,
+            boundary_generation: BoundaryConditionGeneration,
+            initial_condition: "Interpolate from coarse grid or climatology",
+            forcing_preparation: "Prepare atmospheric and wave forcing"
+        },
+        
+        // 模拟阶段 - Simulation phase
+        simulation: {
+            initialization: "Initialize all model components",
+            time_stepping: "Advance models with coupling",
+            output_writing: "Write NetCDF output at specified intervals",
+            checkpoint: "Save restart files for continuation"
+        },
+        
+        // 后处理阶段 - Postprocessing phase
+        postprocessing: {
+            visualization: COAWSTDashboard,
+            analysis: "Calculate derived quantities and statistics",
+            validation: "Compare with observations",
+            archiving: "Store results for future use"
+        }
+    }
+}
+
+// ============================================================================
+// 第六部分：实际应用案例 - Part 6: Real-World Application Case
+// ============================================================================
+
+// Barnegat Bay - Reedy Creek嵌套模拟案例
+// Barnegat Bay - Reedy Creek Nested Simulation Case
+scenario BarnegatBayReedyCreekSimulation {
+    description: "新泽西州Barnegat Bay河口湿地嵌套模拟 - New Jersey Barnegat Bay estuarine wetland nested simulation",
+    
+    // 研究区域 - Study area
+    domain: {
+        outer_domain: {
+            name: "Barnegat Bay",
+            extent: "Complete bay system",
+            resolution: 100 * meter,
+            grid_size: [nx: 200, ny: 300],
+            features: ["barrier_island", "tidal_inlets", "back_bay", "wetlands"]
+        },
+        
+        inner_domain: {
+            name: "Reedy Creek",
+            extent: "Marsh creek system",
+            resolution: 20 * meter,
+            grid_size: [nx: 150, ny: 200],
+            features: ["tidal_creek", "salt_marsh", "vegetation"]
+        }
+    },
+    
+    // 模拟配置 - Simulation configuration
+    configuration: {
+        time_period: {
+            start: DateTime("2015-04-15"),
+            end: DateTime("2015-04-19"),
+            duration: 4 * day
+        },
+        
+        forcing: {
+            tides: "TPXO global tidal model",
+            wind: "NARR atmospheric reanalysis",
+            waves: "WaveWatch III boundary conditions",
+            river_discharge: "USGS gauge data"
+        },
+        
+        physics: {
+            vertical_mixing: "GLS turbulence closure",
+            bottom_friction: "Quadratic drag with vegetation",
+            sediment_transport: "5 sand classes (63-2000 μm)",
+            wetting_drying: "Enabled for marsh inundation"
+        }
+    },
+    
+    // 科学目标 - Scientific objectives
+    objectives: {
+        hydrodynamics: "Understand tidal circulation in marsh creeks",
+        sediment_dynamics: "Quantify sediment exchange between bay and marsh",
+        vegetation_impact: "Assess vegetation effects on flow and sediment",
+        storm_response: "Evaluate marsh resilience to storm events"
+    },
+    
+    // 工作流实例 - Workflow instance
+    workflow: {
+        // 步骤1：粗网格模拟 - Step 1: Coarse grid simulation
+        step1: {
+            model: COAWSTCoupledSystem.roms,
+            grid: outer_domain,
+            duration: time_period,
+            output: "bbleh_history.nc"
+        },
+        
+        // 步骤2：生成细网格边界 - Step 2: Generate refined grid boundaries
+        step2: {
+            process: BoundaryConditionGeneration,
+            input: "bbleh_history.nc",
+            output: "reedy_bry.nc"
+        },
+        
+        // 步骤3：细网格模拟 - Step 3: Refined grid simulation
+        step3: {
+            model: COAWSTCoupledSystem.roms,
+            grid: inner_domain,
+            boundary: "reedy_bry.nc",
+            duration: time_period,
+            output: "reedy_history.nc"
+        },
+        
+        // 步骤4：结果分析 - Step 4: Results analysis
+        step4: {
+            visualization: COAWSTDashboard,
+            analysis: [
+                "tidal_asymmetry",
+                "sediment_flux_budget",
+                "vegetation_drag_coefficient",
+                "marsh_inundation_frequency"
+            ]
+        }
+    },
+    
+    // 预期成果 - Expected outcomes
+    outcomes: {
+        scientific: "Improved understanding of marsh-bay sediment exchange",
+        management: "Inform coastal restoration and protection strategies",
+        technical: "Demonstrate nested modeling capability for complex coastal systems"
+    }
+}
+
+// ============================================================================
+// 主执行函数 - Main Execution Function
+// ============================================================================
+
+fn main() {
+    // 初始化COAWST系统 - Initialize COAWST system
+    let coawst_system = COAWSTCoupledSystem::new()
+    
+    // 运行Barnegat Bay案例 - Run Barnegat Bay case
+    let scenario = BarnegatBayReedyCreekSimulation::new()
+    
+    // 执行完整工作流 - Execute complete workflow
+    println!("开始COAWST嵌套模拟工作流 - Starting COAWST nested simulation workflow")
+    
+    // 阶段1：网格准备 - Phase 1: Grid preparation
+    let grids = scenario.domain.prepare_grids()
+    GridAdjustment.check_and_adjust(grids)
+    
+    // 阶段2：边界条件生成 - Phase 2: Boundary condition generation
+    let boundaries = BoundaryConditionGeneration.execute(
+        coarse_grid: grids.outer_domain,
+        refined_grid: grids.inner_domain,
+        time_range: scenario.configuration.time_period
+    )
+    
+    // 阶段3：耦合模拟 - Phase 3: Coupled simulation
+    let results = coawst_system.run_simulation(scenario)
+    
+    // 阶段4：可视化和分析 - Phase 4: Visualization and analysis
+    let dashboard = COAWSTDashboard::new(results)
+    dashboard.launch()
+    
+    println!("COAWST工作流完成 - COAWST workflow completed")
+    println!("结果已保存并可视化 - Results saved and visualized")
+}

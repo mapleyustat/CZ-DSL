@@ -1,0 +1,27 @@
+# CZ-Coastal-16 --- analysis dependencies
+#
+# Acquisition and verification (data/fetch_and_verify.py, data/verify.py) need
+# only the Python standard library and are deliberately not listed here, so a
+# reader can check the bytes of the release before installing anything.
+#
+# The versions below are the ones the release was built and checked against.
+# `reproduce_analysis.py` needs all of them; each figure script needs numpy and
+# matplotlib, and the figure QA tools additionally need PyMuPDF.
+#
+# `cartopy` is imported at module level by docs/figures/make_fig_essd.py, which is
+# the "shared figures" stage. A module-level import always runs, so a reader
+# without cartopy does not get a degraded figure: the stage raises ImportError and
+# every later stage is skipped. It is therefore a hard dependency, not an optional
+# accelerator.
+numpy>=1.24
+matplotlib>=3.7
+pandas>=2.0
+netCDF4>=1.6
+rasterio>=1.3
+geopandas>=0.14
+shapely>=2.0
+cartopy>=0.22
+Pillow>=10.0
+PyMuPDF>=1.23
+openpyxl>=3.1
+PyYAML>=6.0

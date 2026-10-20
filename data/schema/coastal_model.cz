@@ -1,0 +1,222 @@
+// 海岸带复杂系统模型示例
+// Coastal Zone Complex System Model Example
+
+// 定义大气圈 - Define Atmosphere Sphere
+sphere 大气圈 extends Atmosphere {
+    properties: {
+        temperature: Real with unit kelvin,
+        pressure: Real with unit pascal,
+        humidity: Real with unit percent,
+        wind_velocity: Vector3D with unit m/s,
+        气温: Real with unit celsius  // Chinese property name
+    },
+    
+    processes: {
+        evaporation: Process<Water -> WaterVapor>,
+        precipitation: Process<WaterVapor -> Water>,
+        蒸发过程: Process<海水 -> 水汽>  // Chinese process name
+    },
+    
+    boundaries: {
+        surface: Interface<大气圈, Ocean>,
+        land_surface: Interface<大气圈, Lithosphere>
+    }
+}
+
+// 定义海洋圈 - Define Ocean Sphere  
+sphere Ocean {
+    properties: {
+        sea_surface_temperature: Real with unit kelvin,
+        salinity: Real with unit psu,
+        current_velocity: Vector3D with unit m/s,
+        wave_height: Real with unit meter,
+        wave_energy_density: Real with unit joule/m^3,
+        momentum_flux: Vector3D with unit kg/(m^2*s),
+        潮汐高度: Real with unit meter
+    }
+}
+
+// 物理过程定义 - Physical process definition
+process 潮汐过程 {
+    inputs: {
+        lunar_force: Force with unit newton,
+        solar_force: Force with unit newton,
+        earth_rotation: AngularVelocity with unit rad/s
+    },
+    
+    outputs: {
+        tide_height: Real with unit meter,
+        tidal_current: Vector3D with unit m/s
+    },
+    
+    // 物理约束 - Physical constraints
+    constraint ConservationOfMass {
+        ∀ region: Region, time: Time =>
+            ∂ρ/∂t + ∇·(ρv) = 0
+    },
+    
+    // 数值参数 - Numerical parameters
+    parameters: {
+        gravitational_constant: 6.674e-11 with unit m^3/(kg*s^2),
+        lunar_mass: 7.342e22 with unit kg,
+        earth_moon_distance: 3.844e8 with unit meter
+    }
+}
+
+// 数据模型 - Data model
+data CoastalObservation {
+    location: GeoPoint,
+    timestamp: DateTime,
+    measurements: {
+        water_temperature: Uncertain<Real> with unit celsius,
+        wave_height: Uncertain<Real> with unit meter,
+        wind_speed: Uncertain<Real> with unit m/s,
+        salinity: Uncertain<Real> with unit psu
+    },
+    quality: QualityFlag,
+    uncertainty: UncertaintyRange,
+    数据来源: String  // Data source in Chinese
+}
+
+// AI模型集成 - AI model integration
+ai_model WaveHeightPredictor<ObservationData, WaveHeight> {
+    architecture: NeuralNetwork {
+        layers: [
+            Dense(64, activation: "relu"),
+            Dense(32, activation: "relu"), 
+            Dense(1, activation: "linear")
+        ]
+    },
+    
+    physics_constraints: [
+        WaveEnergyConservation,
+        ShallowWaterEquations
+    ],
+    
+    training_data: Dataset<ObservationData, WaveHeight>,
+    
+    method predict(input: ObservationData): Uncertain<WaveHeight> {
+        // 神经网络预测 - Neural network prediction
+        raw_prediction = self.forward(input)
+        
+        // 物理约束校正 - Physics constraint correction
+        corrected = apply_physics_constraints(raw_prediction, self.physics_constraints)
+        
+        return Uncertain {
+            value: corrected,
+            confidence: calculate_confidence(input, corrected),
+            distribution: estimate_distribution(corrected)
+        }
+    }
+}
+
+// 数字孪生系统 - Digital twin system
+digital_twin CoastalTwin {
+    physical_system: PhysicalCoastalSystem,
+    digital_replica: DigitalCoastalModel,
+    
+    // 实时数据同化 - Real-time data assimilation
+    assimilation: DataAssimilation {
+        method: ExtendedKalmanFilter,
+        observation_model: CoastalObservation,
+        state_variables: [
+            sea_surface_height,
+            current_velocity,
+            temperature,
+            salinity
+        ]
+    },
+    
+    // 预测模拟 - Predictive simulation
+    simulation: VirtualSimulation {
+        time_horizon: 7 * day,
+        resolution: {
+            spatial: 100 * meter,
+            temporal: 1 * hour
+        }
+    },
+    
+    // 反馈控制 - Feedback control
+    control: FeedbackControl {
+        actuators: [
+            tide_gate_controller,
+            warning_system,
+            navigation_guidance
+        ]
+    }
+}
+
+// 多尺度耦合模型 - Multi-scale coupling model
+model CoastalSystemModel {
+    scales: {
+        molecular: 1e-9..1e-6 * meter,
+        cellular: 1e-6..1e-3 * meter,
+        organism: 1e-3..1 * meter,
+        ecosystem: 1..1e6 * meter,
+        regional: 1e6..1e8 * meter
+    },
+    
+    coupling: {
+        // 尺度间耦合 - Inter-scale coupling
+        molecular_to_cellular: UpscalingOperator<Molecular, Cellular>,
+        cellular_to_organism: UpscalingOperator<Cellular, Organism>,
+        organism_to_ecosystem: UpscalingOperator<Organism, Ecosystem>,
+        
+        // 反向耦合 - Downscaling coupling
+        ecosystem_to_organism: DownscalingOperator<Ecosystem, Organism>
+    },
+    
+    // 临界点检测 - Critical point detection
+    criticality_detector: CriticalityDetector {
+        indicators: [
+            variance_increase,
+            autocorrelation_increase,
+            skewness_change,
+            flickering_detection
+        ],
+        
+        thresholds: {
+            warning_level: 0.7,
+            critical_level: 0.9
+        }
+    }
+}
+
+// 情景分析 - Scenario analysis
+scenario ClimateChangeImpact {
+    parameters: {
+        sea_level_rise: 0.5 * meter,
+        temperature_increase: 2.0 * kelvin,
+        storm_intensity_change: 1.2,
+        precipitation_change: 0.8
+    },
+    
+    time_horizon: 50 * year,
+    
+    // 不确定性量化 - Uncertainty quantification
+    uncertainty: MonteCarloSampling {
+        samples: 1000,
+        distributions: {
+            sea_level_rise: Normal(0.5, 0.1),
+            temperature_increase: Normal(2.0, 0.3),
+            storm_intensity: LogNormal(1.2, 0.2)
+        }
+    }
+}
+
+// 主执行函数 - Main execution function
+fn main() {
+    // 初始化模型 - Initialize model
+    let coastal_model = CoastalSystemModel::new()
+    let twin = CoastalTwin::new(coastal_model)
+    
+    // 运行模拟 - Run simulation
+    let results = twin.simulate(ClimateChangeImpact)
+    
+    // 分析结果 - Analyze results
+    let assessment = comprehensive_evaluate(results)
+    
+    // 输出报告 - Generate report
+    println!("海岸带系统评估结果: {}", assessment.overall_score)
+    println!("Coastal system assessment: {}", assessment.overall_score)
+}

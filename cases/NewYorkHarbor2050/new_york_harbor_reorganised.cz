@@ -1,0 +1,679 @@
+classification_layer CMECS_NYHarbor {
+    standard: CMECS,
+    description: "CMECS units for New York Harbor tidal-flat and estuarine systems",
+    codes: [
+        CZ.WD.TIDALFLAT.GEOMORPHOLOGY,
+        CZ.WD.ESTUARINE.SUBSYSTEM,
+        CZ.WD.MARINE.SUBSYSTEM,
+        CZ.CC.SETTLEMENT.RESIDENTIAL,
+    ],
+}
+
+classification_layer EDCS_PhysicalCodes {
+    standard: EDCS,
+    description: "Environmental Data Coding Specification codes for physical layers",
+    codes: [
+        CZ.CP.BATHYMETRY.GRID,
+        CZ.CP.HYDRODYNAMICS.ROMS,
+        CZ.CP.INUNDATION.CONNECTIVITY,
+        CZ.CP.WATERLEVEL.GAUGE,
+        CZ.CP.EXTREMES.GUMBEL,
+    ],
+}
+
+coastal_database NewYorkHarborCZDB {
+    id: "CZDB-NYH-001",
+    version: "1.0.0",
+    spatial: NYHarbor_SRM,
+    temporal: Scenario_2025_2100,
+    tiling: CZDB_TileScheme_90m,
+    cdb_profile: OGC_CDB_1_0,
+
+    metadata: {
+        title: "New York Harbor coastal-zone database",
+        region: "New York Harbor and Jamaica Bay, USA",
+        provider: "Coastal Systems Lab",
+        extent_km2: 9423,
+        land_km2: 2659,
+        water_km2: 6764,
+        layers: 14,
+        datasets: 16
+    },
+
+    layers: {
+        elevation: layer {
+            type: BathymetryLayer,
+            cdb_dataset: CDB_D300_S002_T001,
+            cdb_geometry_type: CDB_Terrain_Elevation,
+            datasets: {
+                copdem90_dem: dataset {
+                    feature_class: GriddedElevation,
+                    spatial_resolution: 90.0 * meter,
+                    quality_profile: CopernicusDEM_QC2,
+                    uncertainty_model: ElevationUncertainty_RMSE,
+                    cmecs_unit: CMECS_Substrate_Unit
+                }
+            }
+        },
+        hydrodynamics: layer {
+            type: HydrodynamicsLayer,
+            cdb_dataset: CDB_D300_S003_T001,
+            cdb_geometry_type: CDB_Terrain_Grid,
+            datasets: {
+                nyofs_roms_grid: dataset {
+                    feature_class: ROMSCurvilinearGrid,
+                    spatial_resolution: 1000.0 * meter,
+                    quality_profile: OperationalModel_QC1,
+                    uncertainty_model: EnsembleSpread,
+                    cmecs_unit: CMECS_Water_Column_Unit
+                }
+            }
+        },
+        water_level: layer {
+            type: WaterLevelLayer,
+            cdb_dataset: CDB_D402_S002_T001,
+            cdb_geometry_type: CDB_Vector_Point,
+            datasets: {
+                battery_gauge_monthly: dataset {
+                    feature_class: TideGaugeStatistics,
+                    temporal_resolution: 1.0 * hour,
+                    quality_profile: TidalStatistics_QC1,
+                    uncertainty_model: GaugeCalibrationError,
+                    cmecs_unit: CMECS_Water_Column_Unit
+                },
+                psmsl_rlr_annual: dataset {
+                    feature_class: SeaLevelIndex,
+                    temporal_resolution: 1.0 * year,
+                    quality_profile: GlobalNetwork_QC1,
+                    uncertainty_model: LinearTrendStdError,
+                    cmecs_unit: CMECS_Water_Column_Unit
+                }
+            }
+        },
+        surge_extremes: layer {
+            type: ExtremesLayer,
+            cdb_dataset: CDB_D402_S003_T001,
+            cdb_geometry_type: CDB_Vector_Point,
+            datasets: {
+                codec_gumbel_stations: dataset {
+                    feature_class: ExtremeValueStation,
+                    quality_profile: PeerReviewed_QC1,
+                    uncertainty_model: GumbelConfidenceInterval,
+                    cmecs_unit: CMECS_Water_Column_Unit
+                }
+            }
+        },
+        tidal_flat: layer {
+            type: HabitatLayer,
+            cdb_dataset: CDB_D201_S001_T001,
+            cdb_geometry_type: CDB_Vector_Polygon,
+            datasets: {
+                gtf30_tidal_flat_2020: dataset {
+                    feature_class: TidalFlatPolygon,
+                    spatial_resolution: 30.0 * meter,
+                    quality_profile: GlobalClassification_QC2,
+                    uncertainty_model: CategoricalConfusionMatrix,
+                    cmecs_unit: CMECS_Geoform_Unit
+                }
+            }
+        },
+        population: layer {
+            type: SocioeconomicLayer,
+            cdb_dataset: CDB_D501_S001_T001,
+            cdb_geometry_type: CDB_Vector_Point,
+            datasets: {
+                ghsl_population_2020: dataset {
+                    feature_class: PopulationGrid,
+                    spatial_resolution: 0.008333 * degree,
+                    quality_profile: CensusDisaggregated_QC2,
+                    uncertainty_model: DasymetricUncertainty,
+                    cmecs_unit: CMECS_Anthro_Unit
+                }
+            }
+        },
+        jurisdiction: layer {
+            type: GovernanceLayer,
+            cdb_dataset: CDB_D402_S004_T001,
+            cdb_geometry_type: CDB_Vector_Polygon,
+            datasets: {
+                world_eez_v12: dataset {
+                    feature_class: ExclusiveEconomicZone,
+                    spatial_resolution: 1000.0 * meter,
+                    quality_profile: AuthoritativeMaritime_QC1,
+                    uncertainty_model: BoundaryPositionalError,
+                    cmecs_unit: CMECS_Jurisdiction_Unit
+                }
+            }
+        },
+        shoreline: layer {
+            type: ShorelineLayer,
+            cdb_dataset: CDB_D402_S001_T001,
+            cdb_geometry_type: CDB_Vector_Line,
+            datasets: {
+                gsw_occurrence: dataset {
+                    feature_class: SurfaceWaterOccurrence,
+                    spatial_resolution: 30.0 * meter,
+                    temporal_resolution: 1.0 * year,
+                    quality_profile: LandsatArchive_QC2,
+                    uncertainty_model: OccurrenceFrequency,
+                    cmecs_unit: CMECS_Geoform_Unit
+                }
+            }
+        },
+        waves: layer {
+            type: WavesLayer,
+            cdb_dataset: CDB_D300_S004_T001,
+            cdb_geometry_type: CDB_Terrain_Grid,
+            datasets: {
+                marine_wave_series: dataset {
+                    feature_class: WaveHeightSeries,
+                    temporal_resolution: 1.0 * hour,
+                    quality_profile: Reanalysis_QC2,
+                    uncertainty_model: HindcastBias,
+                    cmecs_unit: CMECS_Water_Column_Unit
+                }
+            }
+        },
+        wind: layer {
+            type: MeteorologyLayer,
+            cdb_dataset: CDB_D300_S005_T001,
+            cdb_geometry_type: CDB_Terrain_Grid,
+            datasets: {
+                wind_series: dataset {
+                    feature_class: WindFieldSeries,
+                    temporal_resolution: 1.0 * hour,
+                    quality_profile: Reanalysis_QC2,
+                    uncertainty_model: HindcastBias,
+                    cmecs_unit: CMECS_Water_Column_Unit
+                }
+            }
+        },
+        inundation: layer {
+            type: InundationLayer,
+            cdb_dataset: CDB_D300_S006_T001,
+            cdb_geometry_type: CDB_Terrain_Elevation,
+            datasets: {
+                connectivity_flood: dataset {
+                    feature_class: InundationDepthSurface,
+                    spatial_resolution: 90.0 * meter,
+                    quality_profile: DerivedProduct_QC3,
+                    uncertainty_model: ConnectivityAssumption,
+                    cmecs_unit: CMECS_Geoform_Unit
+                }
+            }
+        },
+        exposure: layer {
+            type: ExposureLayer,
+            cdb_dataset: CDB_D501_S002_T001,
+            cdb_geometry_type: CDB_Vector_Polygon,
+            datasets: {
+                habitat_exposure: dataset {
+                    feature_class: HabitatExposureSurface,
+                    spatial_resolution: 90.0 * meter,
+                    quality_profile: DerivedProduct_QC3,
+                    uncertainty_model: AreaWeightingUncertainty,
+                    cmecs_unit: CMECS_Biotic_Unit
+                },
+                population_exposure: dataset {
+                    feature_class: PopulationExposureSurface,
+                    spatial_resolution: 0.008333 * degree,
+                    quality_profile: DerivedProduct_QC3,
+                    uncertainty_model: SumPreservationCheck,
+                    cmecs_unit: CMECS_Anthro_Unit
+                }
+            }
+        },
+        imagery: layer {
+            type: ImageryLayer,
+            cdb_dataset: CDB_D100_S001_T001,
+            cdb_geometry_type: CDB_Raster_Imagery,
+            datasets: {
+                modis_annual_truecolor: dataset {
+                    feature_class: SatelliteImagery,
+                    spatial_resolution: 250.0 * meter,
+                    temporal_resolution: 1.0 * year,
+                    quality_profile: ArchiveProduct_QC2,
+                    uncertainty_model: AtmosphericCorrectionError,
+                    cmecs_unit: CMECS_Biotic_Unit
+                }
+            }
+        },
+        cross_subject: layer {
+            type: CrossSubjectLayer,
+            cdb_dataset: CDB_D700_S001_T001,
+            cdb_geometry_type: CDB_Vector_Line,
+            datasets: {
+                stakeholder_links: dataset {
+                    feature_class: CrossSubjectLinkSet,
+                    quality_profile: GovernanceMapping_QC3,
+                    uncertainty_model: StakeholderCoverage,
+                    cmecs_unit: CMECS_Anthro_Unit
+                }
+            }
+        },
+    }
+}
+
+cross_subject_link FloodToHabitat {
+    source: ConnectivityFlood,
+    target: HabitatExposure,
+    link_type: data_flow,
+    variables: [inundation_extent],
+    coupling_interval: per_event,
+}
+
+cross_subject_link FloodToPopulation {
+    source: ConnectivityFlood,
+    target: PopulationExposure,
+    link_type: data_flow,
+    variables: [inundation_extent],
+    coupling_interval: per_event,
+}
+
+cross_subject_link GaugeToValidation {
+    source: SHAPEDTWValidation,
+    target: ROMS_NYOFS_Hydro,
+    link_type: feedback,
+    variables: [model_bias],
+    coupling_interval: 1.0 * hour,
+}
+
+cross_subject_link GumbelToFlood {
+    source: Gumbel_ExtremeValue,
+    target: ConnectivityFlood,
+    link_type: constraint,
+    variables: [return_level_100yr],
+    coupling_interval: climatology,
+}
+
+cross_subject_link HabitatToPopulation {
+    source: HabitatExposure,
+    target: PopulationExposure,
+    link_type: constraint,
+    variables: [habitat_exposed],
+    coupling_interval: per_scenario,
+}
+
+cross_subject_link ROMStoFlood {
+    source: ROMS_NYOFS_Hydro,
+    target: ConnectivityFlood,
+    link_type: data_flow,
+    variables: [zeta],
+    coupling_interval: 1.0 * hour,
+}
+
+cross_subject_link SLRtoFlood {
+    source: SeaLevelProjection,
+    target: ConnectivityFlood,
+    link_type: constraint,
+    variables: [slr_2050, slr_2100],
+    coupling_interval: per_scenario,
+}
+
+cross_subject_link WaveWindToFlood {
+    source: WaveWindForcing,
+    target: ConnectivityFlood,
+    link_type: feedback,
+    variables: [wind_setup],
+    coupling_interval: 1.0 * hour,
+}
+
+data_source COOPS_BatteryHourly {
+    source_type: observation,
+    coordinate_ref: COOPS_station_datum,
+    temporal_ref: 2024-01,
+    resolution: 1.0 * hour,
+    format: JSON,
+    url: "data/webdata/raw/tide/coops_8518750.json",
+    classification: CZ.CP.WATERLEVEL.GAUGE,
+}
+
+data_source COOPS_BatteryMonthly {
+    source_type: observation,
+    coordinate_ref: COOPS_station_datum,
+    temporal_ref: 1980-2024,
+    format: JSON,
+    url: "data/webdata/raw/tide/coops_monthly_8518750.json",
+    classification: CZ.CP.WATERLEVEL.GAUGE,
+}
+
+data_source COOPS_MontaukMonthly {
+    source_type: observation,
+    coordinate_ref: COOPS_station_datum,
+    temporal_ref: 1980-2024,
+    format: JSON,
+    url: "data/webdata/raw/tide/coops_monthly_8510560.json",
+    classification: CZ.CP.WATERLEVEL.GAUGE,
+}
+
+data_source CoDEC_ExtremeSurge {
+    source_type: simulation,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: climatology,
+    format: NetCDF,
+    url: "data/webdata/raw/surge/codec_coastal_extremes.nc",
+    classification: CZ.CP.HYDRODYNAMICS.SURGE,
+}
+
+data_source CopernicusDEM_GLO90 {
+    source_type: remote_sensing,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: static,
+    resolution: 90.0 * meter,
+    format: GeoTIFF,
+    url: "data/webdata/raw/dem/copdem90_long_island.tif",
+    classification: CZ.CP.BATHYMETRY.GRID,
+}
+
+data_source GHSL_Population2020 {
+    source_type: remote_sensing,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 2020,
+    resolution: 0.008333 * degree,
+    format: GeoTIFF,
+    url: "data/webdata/raw/socio/GHS_POP_E2020_30ss.zip",
+    classification: CZ.CC.SETTLEMENT.RESIDENTIAL,
+}
+
+data_source GSW_Occurrence {
+    source_type: remote_sensing,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 1984-2021,
+    resolution: 1.0 * year,
+    format: GeoTIFF,
+    url: "data/webdata/raw/shoreline/gsw_occurrence_80W_50N.tif",
+    classification: CZ.WD.SHORELINE.OCCURRENCE,
+}
+
+data_source GTF30_TidalFlat2020 {
+    source_type: remote_sensing,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 2020,
+    resolution: 30.0 * meter,
+    format: GeoTIFF,
+    url: "data/webdata/raw/ecosystem/GTF30_2020maps_W75N45.tif",
+    classification: CZ.WD.TIDALFLAT.GEOMORPHOLOGY,
+}
+
+data_source GTSR_SeasonalSurge {
+    source_type: simulation,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 1980-2015,
+    resolution: 1.0 * year,
+    format: NetCDF,
+    url: "data/webdata/raw/surge/gtsr_surge_monthly_maxima.nc",
+    classification: CZ.CP.HYDRODYNAMICS.SURGE,
+}
+
+data_source MODIS_VIIRS_TimeSeries {
+    source_type: remote_sensing,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 2000-2024,
+    resolution: 1.0 * year,
+    format: JPEG,
+    url: "data/webdata/raw/imagery/gibs/",
+    classification: CZ.CP.IMAGERY.OPTICAL,
+}
+
+data_source NOAASTAR_Altimetry {
+    source_type: remote_sensing,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 1992-2025,
+    resolution: 1.0 * year,
+    format: CSV,
+    url: "data/webdata/raw/timeseries/sea_level/slr_sla_gbl_keep_ref_90.csv",
+    classification: CZ.CP.WATERLEVEL.SEALEVEL,
+}
+
+data_source NYOFS_ROMSSSH {
+    source_type: simulation,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: hourly,
+    resolution: 1000.0 * meter,
+    format: NetCDF,
+    url: "data/webdata/raw/coastal_models/nyofs.nc",
+    classification: CZ.CP.HYDRODYNAMICS.ROMS,
+}
+
+data_source PSMSL_RLR_Annual {
+    source_type: observation,
+    coordinate_ref: RLR,
+    temporal_ref: 1856-2025,
+    resolution: 1.0 * year,
+    format: ASCII,
+    url: "data/webdata/raw/timeseries/sea_level/psmsl_rlr_annual.zip",
+    classification: CZ.CP.WATERLEVEL.SEALEVEL,
+}
+
+data_source Wave_Series_LongIsland {
+    source_type: observation,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 2024,
+    resolution: 1.0 * hour,
+    format: JSON,
+    url: "data/webdata/raw/waves/marine_long_island.json",
+    classification: CZ.CP.WAVES.SERIES,
+}
+
+data_source Wind_Series_LongIsland {
+    source_type: observation,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 2024,
+    resolution: 1.0 * hour,
+    format: JSON,
+    url: "data/webdata/raw/wind/wind_long_island.json",
+    classification: CZ.CP.METEOROLOGY.WIND,
+}
+
+data_source WorldEEZ_v12 {
+    source_type: observation,
+    coordinate_ref: EPSG_4326,
+    temporal_ref: 2023,
+    format: Shapefile,
+    url: "data/webdata/raw/planning/World_EEZ_v12_LR.zip",
+    classification: CZ.CC.JURISDICTION.EEZ,
+}
+
+digital_twin_mapping BatteryGauge_DT {
+    physical_entity: "The Battery tide gauge CO-OPS 8518750",
+    digital_entity: COOPS_BatteryMonthly,
+    sync_mode: scheduled,
+    sensors: [water_level],
+    actuators: [],
+}
+
+digital_twin_mapping EEZ_DT {
+    physical_entity: "United States exclusive economic zone",
+    digital_entity: WorldEEZ_v12,
+    sync_mode: on_demand,
+    sensors: [],
+    actuators: [],
+}
+
+digital_twin_mapping NYOFS_DT {
+    physical_entity: "NYOFS operational ROMS forecast",
+    digital_entity: NYOFS_ROMSSSH,
+    sync_mode: real_time,
+    sensors: [zeta, u, v],
+    actuators: [],
+}
+
+digital_twin_mapping TidalFlat_DT {
+    physical_entity: "GTF30 tidal-flat inventory 2020",
+    digital_entity: GTF30_TidalFlat2020,
+    sync_mode: scheduled,
+    sensors: [tidal_flat_extent],
+    actuators: [],
+}
+
+granularity L0_WholeDomain {
+    spatial: 1000.0 * meter,
+    temporal: 1.0 * year,
+    level: regional,
+    lod: 0,
+}
+
+granularity L1_CoastalCell {
+    spatial: 270.0 * meter,
+    temporal: 1.0 * month,
+    level: local,
+    lod: 1,
+}
+
+granularity L2_CorePatch {
+    spatial: 90.0 * meter,
+    temporal: 1.0 * day,
+    level: micro,
+    lod: 2,
+}
+
+granularity L3_BaseElement {
+    spatial: 30.0 * meter,
+    temporal: 1.0 * hour,
+    level: micro,
+    lod: 3,
+}
+
+model_adapter ConnectivityFlood {
+    model_type: hydraulic,
+    engine: PriorityFlood_BFS,
+    inputs: [dem, water_level],
+    outputs: [inundation_depth, inundation_extent],
+    parameters: {
+        connectivity: 4,
+        rp100_area: 129.4 * km^2,
+        rp100_population: 102196,
+    },
+    classification: CZ.CP.INUNDATION.CONNECTIVITY,
+}
+
+model_adapter Gumbel_ExtremeValue {
+    model_type: statistical,
+    engine: Gumbel_MoM,
+    inputs: [annual_max_water_level],
+    outputs: [return_level_100yr, return_level_500yr],
+    parameters: {
+        n_years: 45,
+        loc: 1.4682,
+        scale: 0.2457,
+        rp100: 2.599 * meter,
+    },
+    classification: CZ.CP.EXTREMES.GUMBEL,
+}
+
+model_adapter HabitatExposure {
+    model_type: ecological,
+    engine: AreaWeightedOverlay,
+    inputs: [inundation_extent, tidal_flat_fraction],
+    outputs: [habitat_exposed],
+    parameters: {
+        habitat_total: 104.7 * km^2,
+        rp100_exposed: 18.26 * km^2,
+        rp100_pct: 17.44 * percent,
+    },
+    classification: CZ.WD.TIDALFLAT.EXPOSURE,
+}
+
+model_adapter PopulationExposure {
+    model_type: economic,
+    engine: SumPreservingOverlay,
+    inputs: [inundation_extent, ghsl_population],
+    outputs: [population_exposed],
+    parameters: {
+        domain_population: 10801986,
+        rp100_exposed: 102196,
+        rp100_pct: 0.946 * percent,
+    },
+    classification: CZ.CC.EXPOSURE.POPULATION,
+}
+
+model_adapter ROMS_NYOFS_Hydro {
+    model_type: hydrodynamics,
+    engine: ROMS,
+    inputs: [bathymetry, tide_forcing, wind_field],
+    outputs: [zeta, u, v],
+    parameters: {
+        sigma_layers: 4,
+        wet_cells: 2840,
+        max_current: 1.679 * m/s,
+        max_wind: 9.98 * m/s,
+    },
+    classification: CZ.CP.HYDRODYNAMICS.ROMS,
+}
+
+model_adapter SHAPEDTWValidation {
+    model_type: statistical,
+    engine: GaugeModelComparison,
+    inputs: [coops_hourly, nyofs_zeta],
+    outputs: [model_bias, model_rmse],
+    parameters: {
+        comparison: Battery_hourly_vs_NYOFS,
+    },
+    classification: CZ.CP.VALIDATION.GAUGE,
+}
+
+model_adapter SeaLevelProjection {
+    model_type: statistical,
+    engine: LinearTrendExtrapolation,
+    inputs: [psmsl_annual_mean, coops_mhhw],
+    outputs: [slr_2050, slr_2100],
+    parameters: {
+        trend_central: 5.28 * mm/year,
+        slr_2050: 0.1320 * meter,
+        slr_2100: 0.3961 * meter,
+    },
+    classification: CZ.CP.WATERLEVEL.PROJECTION,
+}
+
+model_adapter WaveWindForcing {
+    model_type: hydrodynamics,
+    engine: BoundaryForcing,
+    inputs: [wave_series, wind_series],
+    outputs: [wave_setup, wind_setup],
+    parameters: {
+        wave_vars: hs, tp, dir,
+        wind_vars: speed, direction,
+    },
+    classification: CZ.CP.FORCING.WAVEWIND,
+}
+
+policy_package NYHarborAdaptation {
+    description: "return-period-based adaptation triggers for the harbor",
+    reference: NewYorkHarbor_CompoundFlood,
+    land_use: WorldEEZ_v12
+}
+
+rule ConnectivityFloodRule {
+    description: "a cell is inundated only if a 4-connected path at or below the water level reaches the sea",
+    reference: ConnectivityFlood,
+    applies_to: CZ.CP.INUNDATION.CONNECTIVITY
+}
+
+rule SumPreservingPopulationRule {
+    description: "population is aggregated onto the source GHSL grid and never resampled",
+    reference: PopulationExposure,
+    applies_to: CZ.CC.EXPOSURE.POPULATION
+}
+
+scenario NewYorkHarbor_CompoundFlood {
+    description: "Compound sea-level-rise and storm-surge exposure, New York Harbor and Jamaica Bay",
+    spatial_ref: NYHarbor_SRM,
+    time_horizon: 2025-2100,
+    reference_epoch: 2025,
+    slr_trend: 5.28 * mm/year,
+    slr_2050: 0.1320 * meter,
+    slr_2100: 0.3961 * meter,
+    return_level_100yr: 2.599 * meter,
+    return_level_500yr: 2.995 * meter,
+    observed_record: 3.294 * meter,
+    observed_record_year: 2012
+}
+
+spatial_reference_system NYHarbor_SRM {
+    geographic_crs: EPSG_4326,
+    vertical_datum: EGM2008_geoid,
+    tidal_datum: COOPS_station_datum,
+    water_level_datum: MSL_anomaly,
+    extent: -74.0, 40.0, -73.0, 41.0,
+    cell_size: 90.0 * meter
+}

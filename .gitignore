@@ -1,0 +1,51 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+.venv/
+venv/
+ENV/
+env/
+.env
+.idea/
+.vscode/
+*.log
+target/
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.spl
+*.xdv
+*.nav
+*.snm
+*.toc
+
+# LaTeX build products
+docs/**/main.pdf
+*.synctex.gz
+
+# test harness outputs (regenerate with tools/run_tests.py)
+reports/
+
+# workspace-local cargo mirror used by the sandbox
+.cargo-home/
+
+# --- public release: no payload data, no paper sources/figures, no binaries ---
+# data/ holds only local working material; data/schema/*.cz are language
+# artefacts (test fixtures) and ARE shipped.
+/data/*
+!/data/schema/
+*.pdf
+*.tif
+*.nc
+*.npy
+*.zip
+docs/figures/
+docs/*submission*/
+review_results/
+slides/
+sketches/

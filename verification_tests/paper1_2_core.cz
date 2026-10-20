@@ -1,0 +1,162 @@
+spatial_reference_system YangtzeEstuarySRS extends CoastalCoordinateSystem {
+    base_srs: WGS84_UTM_Zone_51N,
+    origin: (121.5E, 31.2N, 0.0m),
+    orientation: along_coastline,
+    tidal_datum: mean_sea_level,
+    temporal_reference: UTC,
+    precision: centimeter_accuracy,
+    
+    // Coastal specific parameters
+    coastal_parameters: {
+        tidal_range: 4.5 * meter,
+        mean_high_water: 2.3 * meter,
+        mean_low_water: -2.2 * meter
+    }
+}
+
+classification TyphoonHaikui extends EDCS_Tropical_Cyclone {
+    edcs_code: ECC_TYPHOON,
+    
+    attributes: {
+        maximum_wind_speed: 45.0 with unit m/s,
+        central_pressure: 950.0 with unit hectopascal,
+        storm_radius: 300.0 with unit kilometer,
+        // EDCS classification for intensity
+        category: EDCS_CATEGORY_4_TYPHOON
+    }
+}
+
+scenario StormSurge_Test_01 {
+    spatial_ref: YangtzeEstuarySRS,
+    
+    drivers: {
+        sea_level_anomaly: 0.5 with unit meter,
+        wind_field: from TyphoonHaikui,
+        river_discharge: 35000.0 with unit m^3/s
+    },
+    
+    outputs: {
+        max_water_level: GridField<Length> tagged EDCS_SEA_SURGE,
+        bottom_stress: GridField<ForcePerArea>
+    }
+}
+
+classification ChongmingWetland extends EDCS_Tidal_Wetland {
+    // CMECS Classification
+    biotic_component: {
+        class: Salt_Marsh,
+        subclass: Low_Marsh,
+        group: Spartina_alterniflora_Monoculture
+    },
+    
+    geoform_component: Tidal_Flat,
+    substrate_component: Mud,
+    
+    attributes: {
+        vegetation_density: 85.0 with unit percent,
+        canopy_height: 1.2 with unit meter,
+        biomass: 1200.0 with unit g/m^2
+    }
+}
+
+rule SpartinaSuitability {
+    inputs: {
+        salinity: Salinity,
+        inundation_time: Duration
+    },
+    
+    function hsi() -> SuitabilityScore {
+        let s_score = piecewise_linear(salinity, [0, 5, 20], [1.0, 1.0, 0.0]);
+        let t_score = piecewise_linear(inundation_time, [0, 4, 12], [0.0, 1.0, 0.2]);
+        return geometric_mean([s_score, t_score]);
+    }
+}
+
+infrastructure Seawall_Section_A {
+    type: Coastal_Defense_Structure,
+    geometry: "seawall_project.ifc", // Integration with BIM
+    
+    attributes: {
+        crest_elevation: 6.5 with unit meter, // Referenced to SRM
+        construction_cost: 50.0 with unit million_CNY,
+        maintenance_status: Good,
+        protection_level: "1-in-100-year storm"
+    },
+    
+    // Interaction logic
+    function defense_capability(water_level: Length) -> RiskLevel {
+        if water_level > self.crest_elevation {
+            return RiskLevel.Overtopping;
+        } else {
+            return RiskLevel.Safe;
+        }
+    }
+}
+
+layer LandUse_2023 {
+    type: SocioEconomicLayer,
+    dataset: "landuse_2023.shp",
+    attributes: {
+        category: "Industrial",
+        economic_output: 2.5 with unit billion_CNY_per_year
+    }
+}
+
+policy_package Hybrid_Adaptation_2050 {
+    target_region: LandUse_2023 where category == "Industrial",
+    
+    measures: {
+        upgrade_seawall: {
+            reference: Seawall_Section_A,
+            new_crest_elevation: 7.5 with unit meter
+        },
+        create_retreat_zone: {
+            buffer_distance: 500.0 with unit meter,
+            land_use_change: "Industrial" -> "Restoration_Wetland"
+        }
+    },
+    
+    objective: minimize(Expected_Annual_Loss - 0.3 * Ecosystem_Service_Value)
+}
+
+scenario HangzhouBay_2050_SLR {
+    // 1. Time & Space Setup
+    time_horizon: 2050,
+    spatial_ref: HangzhouBay_SRM,
+    
+    // 2. Physical Drivers (LLM inferred 0.5m SLR)
+    drivers: {
+        sea_level_rise: 0.5 * meter,
+        tidal_amplification: 1.05 // projected factor
+    },
+    
+    // 3. Ecological Assets (CMECS)
+    assets: query_database("HangzhouBay_EcoDB")
+        .filter(type == CMECS_Salt_Marsh),
+        
+    // 4. Recommended Models
+    compute_pipeline: {
+        hydro: recommend_model("hydrodynamics", "high_res"), // e.g., FVCOM
+        eco: recommend_model("marsh_migration", "slamm_compatible") // e.g., SLAMM
+    }
+}
+
+scenario HangzhouBay_2050_Integrated {
+    spatial_ref: YangtzeEstuarySRS,
+    
+    physical: StormSurge_Test_01,
+    
+    ecology: {
+        habitat: ChongmingWetland,
+        suitability_rule: SpartinaSuitability
+    },
+    
+    socio_economics: {
+        land_use: LandUse_2023,
+        adaptation_plan: Hybrid_Adaptation_2050
+    },
+    
+    evaluation: {
+        metrics: [MaxInundationDepth, HabitatLossArea, Expected_Annual_Loss]
+    }
+}

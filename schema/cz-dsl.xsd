@@ -1,0 +1,789 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================ -->
+<!-- CZ-DSL 1.0 XML Schema                                        -->
+<!-- 海岸带领域描述语言 1.0 XML Schema 定义                        -->
+<!-- 基于 KML / CityGML / GML 设计范式                             -->
+<!-- targetNamespace: http://cz-dsl.org/schema/1.0                  -->
+<!-- ============================================================ -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:cz="http://cz-dsl.org/schema/1.0"
+           targetNamespace="http://cz-dsl.org/schema/1.0"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="2.0">
+
+  <!-- ======================================================== -->
+  <!-- 第一部分：基础类型定义                                     -->
+  <!-- 基础类型：单位、不确定性、坐标参考、时间参考               -->
+  <!-- ======================================================== -->
+
+  <!-- 单位类型 —— 支持 SI 量纲属性，用于单位一致性校验 -->
+  <xs:complexType name="UnitType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        单位类型，携带 SI 量纲属性（长度、质量、时间、电流、温度、物质的量、发光强度），
+        供运行时进行单位一致性校验。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:simpleContent>
+      <xs:extension base="xs:string">
+        <xs:attribute name="siLength" type="xs:integer" default="0"/>
+        <xs:attribute name="siMass" type="xs:integer" default="0"/>
+        <xs:attribute name="siTime" type="xs:integer" default="0"/>
+        <xs:attribute name="siCurrent" type="xs:integer" default="0"/>
+        <xs:attribute name="siTemperature" type="xs:integer" default="0"/>
+        <xs:attribute name="siAmount" type="xs:integer" default="0"/>
+        <xs:attribute name="siLuminosity" type="xs:integer" default="0"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <!-- 不确定性类型 —— 支持高斯/均匀/对数正态/经验分布 -->
+  <xs:complexType name="UncertaintyType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        不确定性建模类型，支持 Gaussian、Uniform、LogNormal、Empirical 等分布，
+        用于数据质量与模型置信度量化。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="Distribution" minOccurs="1" maxOccurs="1">
+        <xs:complexType>
+          <xs:attribute name="type" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="Gaussian"/>
+                <xs:enumeration value="Uniform"/>
+                <xs:enumeration value="LogNormal"/>
+                <xs:enumeration value="Empirical"/>
+                <xs:enumeration value="Categorical"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="mean" type="xs:double" use="optional"/>
+          <xs:attribute name="std" type="xs:double" use="optional"/>
+          <xs:attribute name="min" type="xs:double" use="optional"/>
+          <xs:attribute name="max" type="xs:double" use="optional"/>
+          <xs:attribute name="median" type="xs:double" use="optional"/>
+          <xs:attribute name="confidence" type="xs:double" use="optional"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="confidenceInterval" type="xs:double" default="0.95"/>
+  </xs:complexType>
+
+  <!-- 坐标参考类型 —— 支持任意 CRS：EPSG 代码 + WKT + 动态参数 -->
+  <xs:complexType name="CoordinateReferenceType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        坐标参考系统类型，支持通过 EPSG 代码、WKT 定义以及动态参数（如潮汐基准、历元）
+        描述任意 CRS，兼容 SEDRIS SRM。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="EPSG" type="xs:integer" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="WKT" type="xs:string" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="DynamicParameters" minOccurs="0" maxOccurs="1">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="Epoch" type="xs:string" minOccurs="0"/>
+            <xs:element name="TidalDatum" type="xs:string" minOccurs="0"/>
+            <xs:element name="GeoidModel" type="xs:string" minOccurs="0"/>
+            <xs:element name="Origin" type="cz:Point3DType" minOccurs="0"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="name" type="xs:string" use="optional"/>
+    <xs:attribute name="srmMapping" type="xs:string" use="optional"/>
+  </xs:complexType>
+
+  <!-- 三维点类型 -->
+  <xs:complexType name="Point3DType">
+    <xs:attribute name="x" type="xs:double" use="required"/>
+    <xs:attribute name="y" type="xs:double" use="required"/>
+    <xs:attribute name="z" type="xs:double" use="optional"/>
+  </xs:complexType>
+
+  <!-- 时间参考类型 —— 日历 + 历元 + 分辨率 -->
+  <xs:complexType name="TemporalReferenceType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        时间参考类型，包含日历系统、时间历元与时间分辨率。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="Calendar" type="xs:string" default="Gregorian" minOccurs="0"/>
+      <xs:element name="Epoch" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="Resolution" type="cz:UnitType" minOccurs="0"/>
+      <xs:element name="TimeZone" type="xs:string" default="UTC" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================================================== -->
+  <!-- 第二部分：AtomType 抽象基类与扩展机制                       -->
+  <!-- AtomType 是所有原子的抽象基类，提供插件式扩展基础           -->
+  <!-- ======================================================== -->
+
+  <xs:complexType name="AtomType" abstract="true">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        AtomType —— 所有原子元素的抽象基类。
+        提供 id、version、extends、source 四个通用属性，实现插件式扩展机制。
+        所有具体原子类型必须继承本类型。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="ExtensionSlot" type="cz:ExtensionSlotType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="version" type="xs:string" default="1.0.0"/>
+    <xs:attribute name="extends" type="xs:string" use="optional"/>
+    <xs:attribute name="source" type="xs:string" use="optional"/>
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
+  </xs:complexType>
+
+  <!-- ExtensionSlot —— 无侵入式扩展槽 -->
+  <xs:complexType name="ExtensionSlotType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        ExtensionSlot 扩展槽类型：通过 xs:any (processContents=lax) 和 anyAttribute
+        提供无侵入式扩展机制，新原子/数据类型/模型接口可在不修改核心 schema 的前提下插入。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:any namespace="##any" processContents="lax" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
+  </xs:complexType>
+
+  <!-- ======================================================== -->
+  <!-- 第三部分：四级分类层次类型                                 -->
+  <!-- LayeredClassification 组件: WholeDomain / CoastalCell /    -->
+  <!-- CorePatch / BaseElement                                   -->
+  <!-- ======================================================== -->
+
+  <xs:simpleType name="ClassificationLevelType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="WholeDomain"/>
+      <xs:enumeration value="CoastalCell"/>
+      <xs:enumeration value="CorePatch"/>
+      <xs:enumeration value="BaseElement"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- 分类编码模式: CZ.WD.* / CZ.CC.* / CZ.CP.* / CZ.BE.* -->
+  <xs:simpleType name="ClassificationCodeType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="CZ\.(WD|CC|CP|BE)\.[A-Z0-9-]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="ClassificationLayerType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        四级分类层类型，level 属性枚举为 WholeDomain/CoastalCell/CorePatch/BaseElement，
+        code 遵循 CZ.(WD|CC|CP|BE).* 模式，cmecsRef/edcsRef 提供与 CMECS/EDCS 的交叉引用。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Level" type="cz:ClassificationLevelType"/>
+          <xs:element name="Code" type="cz:ClassificationCodeType"/>
+          <xs:element name="Label" type="xs:string" minOccurs="0"/>
+          <xs:element name="CmecsRef" type="xs:string" minOccurs="0"/>
+          <xs:element name="EdcsRef" type="xs:string" minOccurs="0"/>
+          <xs:element name="ParentCode" type="cz:ClassificationCodeType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- ======================================================== -->
+  <!-- 第四部分：七大组件的原子类型定义                            -->
+  <!-- 每个组件组（group）包含若干可插拔原子元素                   -->
+  <!-- ======================================================== -->
+
+  <!-- 4.1 DataAccess 组件原子 -->
+  <xs:complexType name="DataSourceType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Protocol" type="xs:string" minOccurs="0"/>
+          <xs:element name="Endpoint" type="xs:string" minOccurs="0"/>
+          <xs:element name="Format" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="CoordinateReferenceAtomType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="CRS" type="cz:CoordinateReferenceType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="TemporalReferenceAtomType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Temporal" type="cz:TemporalReferenceType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ResolutionSpecType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="SpatialResolution" type="cz:UnitType" minOccurs="0"/>
+          <xs:element name="TemporalResolution" type="cz:UnitType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="QualityProfileType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Level" type="xs:string" minOccurs="0"/>
+          <xs:element name="Standard" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="UncertaintyModelType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Uncertainty" type="cz:UncertaintyType"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AccessEndpointType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="URL" type="xs:anyURI"/>
+          <xs:element name="AuthMethod" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- 4.2 ModelAdapter 组件原子 -->
+  <xs:complexType name="ModelInterfaceType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="ModelName" type="xs:string"/>
+          <xs:element name="Framework" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ModelCapabilityType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Capability" type="xs:string" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ModelIOContractType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Input" type="xs:string" maxOccurs="unbounded"/>
+          <xs:element name="Output" type="xs:string" maxOccurs="unbounded"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ModelVersionType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="VersionTag" type="xs:string"/>
+          <xs:element name="Checksum" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ModelDeploymentType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Runtime" type="xs:string" minOccurs="0"/>
+          <xs:element name="Replicas" type="xs:integer" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ModelInvokeBindingType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="BindingTarget" type="xs:string"/>
+          <xs:element name="Method" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- 4.3 CrossSubjectLink 组件原子 -->
+  <xs:complexType name="SubjectType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="SubjectName" type="xs:string"/>
+          <xs:element name="Domain" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="RoleType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="RoleName" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="JurisdictionType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Scope" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="SemanticLinkType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="From" type="xs:string"/>
+          <xs:element name="To" type="xs:string"/>
+          <xs:element name="Relation" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ProvenanceType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Source" type="xs:string"/>
+          <xs:element name="Timestamp" type="xs:dateTime" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AuthorizationType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Principal" type="xs:string"/>
+          <xs:element name="Action" type="xs:string"/>
+          <xs:element name="Resource" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ResponsibilityType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Duty" type="xs:string"/>
+          <xs:element name="Assignee" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- 4.4 LLMDispatch 组件原子 -->
+  <xs:complexType name="LLMTaskType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="TaskType" type="xs:string"/>
+          <xs:element name="Description" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="PromptContractType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="SystemPrompt" type="xs:string" minOccurs="0"/>
+          <xs:element name="UserPrompt" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="SpatialCognitionCallType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Query" type="xs:string"/>
+          <xs:element name="Region" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="LogicInferenceCallType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Premise" type="xs:string"/>
+          <xs:element name="Conclusion" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="LLMOutputBindingType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="TargetField" type="xs:string"/>
+          <xs:element name="Transform" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="GroundingConstraintType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Constraint" type="xs:string"/>
+          <xs:element name="DataSourceRef" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="HallucinationGuardType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Strategy" type="xs:string"/>
+          <xs:element name="Threshold" type="xs:double" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- 4.5 GranularityPartition 组件原子 -->
+  <xs:complexType name="GranularityLevelType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Level" type="cz:ClassificationLevelType"/>
+          <xs:element name="Scale" type="cz:UnitType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="PartitionRuleType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Rule" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AggregationOperatorType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Operator" type="xs:string"/>
+          <xs:element name="FromLevel" type="cz:ClassificationLevelType" minOccurs="0"/>
+          <xs:element name="ToLevel" type="cz:ClassificationLevelType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="DisaggregationOperatorType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Operator" type="xs:string"/>
+          <xs:element name="FromLevel" type="cz:ClassificationLevelType" minOccurs="0"/>
+          <xs:element name="ToLevel" type="cz:ClassificationLevelType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="BoundaryRuleType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="BoundaryType" type="xs:string"/>
+          <xs:element name="Condition" type="xs:string"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- 4.6 LayeredClassification 组件原子 -->
+  <!-- ClassificationLayer 已在第三部分定义 -->
+
+  <!-- 4.7 DigitalTwinMapping 组件原子 -->
+  <xs:complexType name="PhysicalAssetType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="AssetType" type="xs:string"/>
+          <xs:element name="Location" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="DigitalReplicaType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="ReplicaType" type="xs:string"/>
+          <xs:element name="ModelRef" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="AssimilationBindingType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Method" type="xs:string"/>
+          <xs:element name="ObservationRef" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="SimulationBindingType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Engine" type="xs:string"/>
+          <xs:element name="TimeHorizon" type="cz:UnitType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="FeedbackControlType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="Controller" type="xs:string"/>
+          <xs:element name="Actuator" type="xs:string" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="StateVariableType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="VariableName" type="xs:string"/>
+          <xs:element name="Unit" type="cz:UnitType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+  <xs:complexType name="ObservationStreamType">
+    <xs:complexContent>
+      <xs:extension base="cz:AtomType">
+        <xs:sequence>
+          <xs:element name="StreamSource" type="xs:string"/>
+          <xs:element name="Frequency" type="cz:UnitType" minOccurs="0"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- ======================================================== -->
+  <!-- 第五部分：七大组件组 (xs:group) 定义                        -->
+  <!-- 每个组包含该组件下的所有可插拔原子                          -->
+  <!-- ======================================================== -->
+
+  <!-- 组件 1: DataAccess -->
+  <xs:group name="DataAccessGroup">
+    <xs:sequence>
+      <xs:element name="DataSource" type="cz:DataSourceType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="CoordinateReference" type="cz:CoordinateReferenceAtomType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="TemporalReference" type="cz:TemporalReferenceAtomType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ResolutionSpec" type="cz:ResolutionSpecType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="QualityProfile" type="cz:QualityProfileType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="UncertaintyModel" type="cz:UncertaintyModelType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="AccessEndpoint" type="cz:AccessEndpointType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- 组件 2: ModelAdapter -->
+  <xs:group name="ModelAdapterGroup">
+    <xs:sequence>
+      <xs:element name="ModelInterface" type="cz:ModelInterfaceType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ModelCapability" type="cz:ModelCapabilityType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ModelIOContract" type="cz:ModelIOContractType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ModelVersion" type="cz:ModelVersionType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ModelDeployment" type="cz:ModelDeploymentType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ModelInvokeBinding" type="cz:ModelInvokeBindingType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- 组件 3: CrossSubjectLink -->
+  <xs:group name="CrossSubjectLinkGroup">
+    <xs:sequence>
+      <xs:element name="Subject" type="cz:SubjectType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Role" type="cz:RoleType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Jurisdiction" type="cz:JurisdictionType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="SemanticLink" type="cz:SemanticLinkType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Provenance" type="cz:ProvenanceType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Authorization" type="cz:AuthorizationType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="Responsibility" type="cz:ResponsibilityType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- 组件 4: LLMDispatch -->
+  <xs:group name="LLMDispatchGroup">
+    <xs:sequence>
+      <xs:element name="LLMTask" type="cz:LLMTaskType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="PromptContract" type="cz:PromptContractType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="SpatialCognitionCall" type="cz:SpatialCognitionCallType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="LogicInferenceCall" type="cz:LogicInferenceCallType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="LLMOutputBinding" type="cz:LLMOutputBindingType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="GroundingConstraint" type="cz:GroundingConstraintType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="HallucinationGuard" type="cz:HallucinationGuardType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- 组件 5: GranularityPartition -->
+  <xs:group name="GranularityPartitionGroup">
+    <xs:sequence>
+      <xs:element name="GranularityLevel" type="cz:GranularityLevelType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="PartitionRule" type="cz:PartitionRuleType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="AggregationOperator" type="cz:AggregationOperatorType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="DisaggregationOperator" type="cz:DisaggregationOperatorType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="BoundaryRule" type="cz:BoundaryRuleType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- 组件 6: LayeredClassification -->
+  <xs:group name="LayeredClassificationGroup">
+    <xs:sequence>
+      <xs:element name="ClassificationLayer" type="cz:ClassificationLayerType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- 组件 7: DigitalTwinMapping -->
+  <xs:group name="DigitalTwinMappingGroup">
+    <xs:sequence>
+      <xs:element name="PhysicalAsset" type="cz:PhysicalAssetType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="DigitalReplica" type="cz:DigitalReplicaType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="AssimilationBinding" type="cz:AssimilationBindingType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="SimulationBinding" type="cz:SimulationBindingType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="FeedbackControl" type="cz:FeedbackControlType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="StateVariable" type="cz:StateVariableType" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="ObservationStream" type="cz:ObservationStreamType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:group>
+
+  <!-- ======================================================== -->
+  <!-- 第六部分：根元素 CZScenario 与顶级类型                      -->
+  <!-- ======================================================== -->
+
+  <!-- 场景元数据类型 -->
+  <xs:complexType name="MetadataType">
+    <xs:sequence>
+      <xs:element name="Title" type="xs:string"/>
+      <xs:element name="Description" type="xs:string" minOccurs="0"/>
+      <xs:element name="Author" type="xs:string" minOccurs="0"/>
+      <xs:element name="Created" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="Version" type="xs:string" minOccurs="0"/>
+      <xs:element name="Tags" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- 粒度类型 (4-level) -->
+  <xs:complexType name="GranularityType">
+    <xs:sequence>
+      <xs:element name="Level" type="cz:ClassificationLevelType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- CZScenario 根类型 -->
+  <xs:complexType name="CZScenarioType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        CZScenario 根类型 —— 海岸带场景的顶级容器，
+        包含 metadata、spatialReference、temporalReference、granularity 及七大组件组。
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="metadata" type="cz:MetadataType"/>
+      <xs:element name="spatialReference" type="cz:CoordinateReferenceType"/>
+      <xs:element name="temporalReference" type="cz:TemporalReferenceType"/>
+      <xs:element name="granularity" type="cz:GranularityType"/>
+
+      <!-- 七大组件组 -->
+      <xs:element name="DataAccess">
+        <xs:complexType>
+          <xs:group ref="cz:DataAccessGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="ModelAdapter">
+        <xs:complexType>
+          <xs:group ref="cz:ModelAdapterGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="CrossSubjectLink">
+        <xs:complexType>
+          <xs:group ref="cz:CrossSubjectLinkGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="LLMDispatch">
+        <xs:complexType>
+          <xs:group ref="cz:LLMDispatchGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="GranularityPartition">
+        <xs:complexType>
+          <xs:group ref="cz:GranularityPartitionGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="LayeredClassification">
+        <xs:complexType>
+          <xs:group ref="cz:LayeredClassificationGroup"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="DigitalTwinMapping">
+        <xs:complexType>
+          <xs:group ref="cz:DigitalTwinMappingGroup"/>
+        </xs:complexType>
+      </xs:element>
+
+      <!-- 全局扩展槽：允许在任何位置插入扩展内容 -->
+      <xs:element name="ExtensionSlot" type="cz:ExtensionSlotType" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+    <xs:attribute name="id" type="xs:ID" use="required"/>
+    <xs:attribute name="version" type="xs:string" default="2.0"/>
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
+  </xs:complexType>
+
+  <!-- 根元素 CZScenario -->
+  <xs:element name="CZScenario" type="cz:CZScenarioType">
+    <xs:annotation>
+      <xs:documentation xml:lang="zh">
+        CZScenario 根元素 —— 海岸带领域描述语言 1.0 的 XML 序列化根节点。
+      </xs:documentation>
+    </xs:annotation>
+  </xs:element>
+
+</xs:schema>

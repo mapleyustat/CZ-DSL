@@ -1,0 +1,866 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "http://cz-dsl.org/schema/1.0/cz-dsl.schema.json",
+  "title": "CZ-DSL 1.0 Scenario Schema",
+  "description": "海岸带领域描述语言 1.0 JSON Schema —— CZScenario 根对象，包含七大组件组与可插拔原子",
+  "type": "object",
+  "required": ["id", "metadata", "spatialReference", "temporalReference", "granularity", "DataAccess", "ModelAdapter", "CrossSubjectLink", "LLMDispatch", "GranularityPartition", "LayeredClassification", "DigitalTwinMapping"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "场景唯一标识符"
+    },
+    "version": {
+      "type": "string",
+      "default": "2.0",
+      "description": "协议版本号"
+    },
+    "metadata": {
+      "$ref": "#/$defs/Metadata"
+    },
+    "spatialReference": {
+      "$ref": "#/$defs/CoordinateReference"
+    },
+    "temporalReference": {
+      "$ref": "#/$defs/TemporalReference"
+    },
+    "granularity": {
+      "type": "object",
+      "required": ["level"],
+      "properties": {
+        "level": {
+          "$ref": "#/$defs/ClassificationLevel"
+        }
+      }
+    },
+    "DataAccess": {
+      "$ref": "#/$defs/DataAccessGroup"
+    },
+    "ModelAdapter": {
+      "$ref": "#/$defs/ModelAdapterGroup"
+    },
+    "CrossSubjectLink": {
+      "$ref": "#/$defs/CrossSubjectLinkGroup"
+    },
+    "LLMDispatch": {
+      "$ref": "#/$defs/LLMDispatchGroup"
+    },
+    "GranularityPartition": {
+      "$ref": "#/$defs/GranularityPartitionGroup"
+    },
+    "LayeredClassification": {
+      "$ref": "#/$defs/LayeredClassificationGroup"
+    },
+    "DigitalTwinMapping": {
+      "$ref": "#/$defs/DigitalTwinMappingGroup"
+    }
+  },
+  "patternProperties": {
+    "^x-": {
+      "description": "无侵入式扩展槽：以 x- 前缀开头的属性允许注入扩展内容，不修改核心 schema"
+    }
+  },
+  "additionalProperties": false,
+
+  "$defs": {
+
+    "Atom": {
+      "type": "object",
+      "description": "Atom 基类 —— 所有原子共享的通用属性，实现插件式扩展机制",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "原子唯一标识符"
+        },
+        "version": {
+          "type": "string",
+          "default": "1.0.0"
+        },
+        "extends": {
+          "type": "string",
+          "description": "继承的目标原子标识"
+        },
+        "source": {
+          "type": "string",
+          "description": "数据/模型来源标识"
+        }
+      },
+      "patternProperties": {
+        "^x-": {
+          "description": "原子级扩展槽"
+        }
+      }
+    },
+
+    "Metadata": {
+      "type": "object",
+      "required": ["title"],
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "author": { "type": "string" },
+        "created": { "type": "string", "format": "date-time" },
+        "version": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "Unit": {
+      "type": "object",
+      "description": "单位类型，携带 SI 量纲属性用于单位一致性校验",
+      "properties": {
+        "value": { "type": "string" },
+        "siLength": { "type": "integer", "default": 0 },
+        "siMass": { "type": "integer", "default": 0 },
+        "siTime": { "type": "integer", "default": 0 },
+        "siCurrent": { "type": "integer", "default": 0 },
+        "siTemperature": { "type": "integer", "default": 0 },
+        "siAmount": { "type": "integer", "default": 0 },
+        "siLuminosity": { "type": "integer", "default": 0 }
+      }
+    },
+
+    "Uncertainty": {
+      "type": "object",
+      "description": "不确定性建模类型",
+      "required": ["distribution"],
+      "properties": {
+        "confidenceInterval": { "type": "number", "default": 0.95 },
+        "distribution": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["Gaussian", "Uniform", "LogNormal", "Empirical", "Categorical"]
+            },
+            "mean": { "type": "number" },
+            "std": { "type": "number" },
+            "min": { "type": "number" },
+            "max": { "type": "number" },
+            "median": { "type": "number" },
+            "confidence": { "type": "number" }
+          }
+        }
+      }
+    },
+
+    "CoordinateReference": {
+      "type": "object",
+      "description": "坐标参考系统类型，支持 EPSG + WKT + 动态参数，兼容 SEDRIS SRM",
+      "properties": {
+        "name": { "type": "string" },
+        "srmMapping": { "type": "string" },
+        "epsg": { "type": "integer" },
+        "wkt": { "type": "string" },
+        "dynamicParameters": {
+          "type": "object",
+          "properties": {
+            "epoch": { "type": "string" },
+            "tidalDatum": { "type": "string" },
+            "geoidModel": { "type": "string" },
+            "origin": {
+              "type": "object",
+              "properties": {
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "z": { "type": "number" }
+              },
+              "required": ["x", "y"]
+            }
+          }
+        }
+      }
+    },
+
+    "TemporalReference": {
+      "type": "object",
+      "description": "时间参考类型：日历 + 历元 + 分辨率",
+      "properties": {
+        "calendar": { "type": "string", "default": "Gregorian" },
+        "epoch": { "type": "string", "format": "date-time" },
+        "resolution": { "$ref": "#/$defs/Unit" },
+        "timeZone": { "type": "string", "default": "UTC" }
+      }
+    },
+
+    "ClassificationLevel": {
+      "type": "string",
+      "enum": ["WholeDomain", "CoastalCell", "CorePatch", "BaseElement"]
+    },
+
+    "ClassificationCode": {
+      "type": "string",
+      "pattern": "^CZ\\.(WD|CC|CP|BE)\\.[A-Z0-9-]+$"
+    },
+
+    "ClassificationLayer": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["level", "code"],
+          "properties": {
+            "level": { "$ref": "#/$defs/ClassificationLevel" },
+            "code": { "$ref": "#/$defs/ClassificationCode" },
+            "label": { "type": "string" },
+            "cmecsRef": { "type": "string" },
+            "edcsRef": { "type": "string" },
+            "parentCode": { "$ref": "#/$defs/ClassificationCode" }
+          }
+        }
+      ]
+    },
+
+    "DataSource": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "properties": {
+            "protocol": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "format": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "CoordinateReferenceAtom": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["crs"],
+          "properties": {
+            "crs": { "$ref": "#/$defs/CoordinateReference" }
+          }
+        }
+      ]
+    },
+
+    "TemporalReferenceAtom": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["temporal"],
+          "properties": {
+            "temporal": { "$ref": "#/$defs/TemporalReference" }
+          }
+        }
+      ]
+    },
+
+    "ResolutionSpec": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "properties": {
+            "spatialResolution": { "$ref": "#/$defs/Unit" },
+            "temporalResolution": { "$ref": "#/$defs/Unit" }
+          }
+        }
+      ]
+    },
+
+    "QualityProfile": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "properties": {
+            "level": { "type": "string" },
+            "standard": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "UncertaintyModel": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["uncertainty"],
+          "properties": {
+            "uncertainty": { "$ref": "#/$defs/Uncertainty" }
+          }
+        }
+      ]
+    },
+
+    "AccessEndpoint": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["url"],
+          "properties": {
+            "url": { "type": "string", "format": "uri" },
+            "authMethod": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "DataAccessGroup": {
+      "type": "object",
+      "properties": {
+        "DataSource": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DataSource" }
+        },
+        "CoordinateReference": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CoordinateReferenceAtom" }
+        },
+        "TemporalReference": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/TemporalReferenceAtom" }
+        },
+        "ResolutionSpec": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ResolutionSpec" }
+        },
+        "QualityProfile": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/QualityProfile" }
+        },
+        "UncertaintyModel": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/UncertaintyModel" }
+        },
+        "AccessEndpoint": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AccessEndpoint" }
+        }
+      }
+    },
+
+    "ModelInterface": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["modelName"],
+          "properties": {
+            "modelName": { "type": "string" },
+            "framework": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "ModelCapability": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["capabilities"],
+          "properties": {
+            "capabilities": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      ]
+    },
+
+    "ModelIOContract": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["inputs", "outputs"],
+          "properties": {
+            "inputs": { "type": "array", "items": { "type": "string" } },
+            "outputs": { "type": "array", "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+
+    "ModelVersion": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["versionTag"],
+          "properties": {
+            "versionTag": { "type": "string" },
+            "checksum": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "ModelDeployment": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "properties": {
+            "runtime": { "type": "string" },
+            "replicas": { "type": "integer" }
+          }
+        }
+      ]
+    },
+
+    "ModelInvokeBinding": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["bindingTarget"],
+          "properties": {
+            "bindingTarget": { "type": "string" },
+            "method": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "ModelAdapterGroup": {
+      "type": "object",
+      "properties": {
+        "ModelInterface": { "type": "array", "items": { "$ref": "#/$defs/ModelInterface" } },
+        "ModelCapability": { "type": "array", "items": { "$ref": "#/$defs/ModelCapability" } },
+        "ModelIOContract": { "type": "array", "items": { "$ref": "#/$defs/ModelIOContract" } },
+        "ModelVersion": { "type": "array", "items": { "$ref": "#/$defs/ModelVersion" } },
+        "ModelDeployment": { "type": "array", "items": { "$ref": "#/$defs/ModelDeployment" } },
+        "ModelInvokeBinding": { "type": "array", "items": { "$ref": "#/$defs/ModelInvokeBinding" } }
+      }
+    },
+
+    "Subject": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["subjectName"],
+          "properties": {
+            "subjectName": { "type": "string" },
+            "domain": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "Role": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["roleName"],
+          "properties": {
+            "roleName": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "Jurisdiction": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["scope"],
+          "properties": {
+            "scope": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "SemanticLink": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["from", "to", "relation"],
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" },
+            "relation": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "Provenance": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["source"],
+          "properties": {
+            "source": { "type": "string" },
+            "timestamp": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+
+    "Authorization": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["principal", "action", "resource"],
+          "properties": {
+            "principal": { "type": "string" },
+            "action": { "type": "string" },
+            "resource": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "Responsibility": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["duty", "assignee"],
+          "properties": {
+            "duty": { "type": "string" },
+            "assignee": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "CrossSubjectLinkGroup": {
+      "type": "object",
+      "properties": {
+        "Subject": { "type": "array", "items": { "$ref": "#/$defs/Subject" } },
+        "Role": { "type": "array", "items": { "$ref": "#/$defs/Role" } },
+        "Jurisdiction": { "type": "array", "items": { "$ref": "#/$defs/Jurisdiction" } },
+        "SemanticLink": { "type": "array", "items": { "$ref": "#/$defs/SemanticLink" } },
+        "Provenance": { "type": "array", "items": { "$ref": "#/$defs/Provenance" } },
+        "Authorization": { "type": "array", "items": { "$ref": "#/$defs/Authorization" } },
+        "Responsibility": { "type": "array", "items": { "$ref": "#/$defs/Responsibility" } }
+      }
+    },
+
+    "LLMTask": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["taskType"],
+          "properties": {
+            "taskType": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "PromptContract": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["userPrompt"],
+          "properties": {
+            "systemPrompt": { "type": "string" },
+            "userPrompt": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "SpatialCognitionCall": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["query"],
+          "properties": {
+            "query": { "type": "string" },
+            "region": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "LogicInferenceCall": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["premise"],
+          "properties": {
+            "premise": { "type": "string" },
+            "conclusion": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "LLMOutputBinding": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["targetField"],
+          "properties": {
+            "targetField": { "type": "string" },
+            "transform": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "GroundingConstraint": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["constraint"],
+          "properties": {
+            "constraint": { "type": "string" },
+            "dataSourceRef": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "HallucinationGuard": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["strategy"],
+          "properties": {
+            "strategy": { "type": "string" },
+            "threshold": { "type": "number" }
+          }
+        }
+      ]
+    },
+
+    "LLMDispatchGroup": {
+      "type": "object",
+      "properties": {
+        "LLMTask": { "type": "array", "items": { "$ref": "#/$defs/LLMTask" } },
+        "PromptContract": { "type": "array", "items": { "$ref": "#/$defs/PromptContract" } },
+        "SpatialCognitionCall": { "type": "array", "items": { "$ref": "#/$defs/SpatialCognitionCall" } },
+        "LogicInferenceCall": { "type": "array", "items": { "$ref": "#/$defs/LogicInferenceCall" } },
+        "LLMOutputBinding": { "type": "array", "items": { "$ref": "#/$defs/LLMOutputBinding" } },
+        "GroundingConstraint": { "type": "array", "items": { "$ref": "#/$defs/GroundingConstraint" } },
+        "HallucinationGuard": { "type": "array", "items": { "$ref": "#/$defs/HallucinationGuard" } }
+      }
+    },
+
+    "GranularityLevelAtom": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["level"],
+          "properties": {
+            "level": { "$ref": "#/$defs/ClassificationLevel" },
+            "scale": { "$ref": "#/$defs/Unit" }
+          }
+        }
+      ]
+    },
+
+    "PartitionRule": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["rule"],
+          "properties": {
+            "rule": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "AggregationOperator": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["operator"],
+          "properties": {
+            "operator": { "type": "string" },
+            "fromLevel": { "$ref": "#/$defs/ClassificationLevel" },
+            "toLevel": { "$ref": "#/$defs/ClassificationLevel" }
+          }
+        }
+      ]
+    },
+
+    "DisaggregationOperator": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["operator"],
+          "properties": {
+            "operator": { "type": "string" },
+            "fromLevel": { "$ref": "#/$defs/ClassificationLevel" },
+            "toLevel": { "$ref": "#/$defs/ClassificationLevel" }
+          }
+        }
+      ]
+    },
+
+    "BoundaryRule": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["boundaryType", "condition"],
+          "properties": {
+            "boundaryType": { "type": "string" },
+            "condition": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "GranularityPartitionGroup": {
+      "type": "object",
+      "properties": {
+        "GranularityLevel": { "type": "array", "items": { "$ref": "#/$defs/GranularityLevelAtom" } },
+        "PartitionRule": { "type": "array", "items": { "$ref": "#/$defs/PartitionRule" } },
+        "AggregationOperator": { "type": "array", "items": { "$ref": "#/$defs/AggregationOperator" } },
+        "DisaggregationOperator": { "type": "array", "items": { "$ref": "#/$defs/DisaggregationOperator" } },
+        "BoundaryRule": { "type": "array", "items": { "$ref": "#/$defs/BoundaryRule" } }
+      }
+    },
+
+    "LayeredClassificationGroup": {
+      "type": "object",
+      "properties": {
+        "ClassificationLayer": { "type": "array", "items": { "$ref": "#/$defs/ClassificationLayer" } }
+      }
+    },
+
+    "PhysicalAsset": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["assetType"],
+          "properties": {
+            "assetType": { "type": "string" },
+            "location": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "DigitalReplica": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["replicaType"],
+          "properties": {
+            "replicaType": { "type": "string" },
+            "modelRef": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "AssimilationBinding": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["method"],
+          "properties": {
+            "method": { "type": "string" },
+            "observationRef": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "SimulationBinding": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["engine"],
+          "properties": {
+            "engine": { "type": "string" },
+            "timeHorizon": { "$ref": "#/$defs/Unit" }
+          }
+        }
+      ]
+    },
+
+    "FeedbackControl": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["controller"],
+          "properties": {
+            "controller": { "type": "string" },
+            "actuator": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "StateVariable": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["variableName"],
+          "properties": {
+            "variableName": { "type": "string" },
+            "unit": { "$ref": "#/$defs/Unit" }
+          }
+        }
+      ]
+    },
+
+    "ObservationStream": {
+      "allOf": [
+        { "$ref": "#/$defs/Atom" },
+        {
+          "type": "object",
+          "required": ["streamSource"],
+          "properties": {
+            "streamSource": { "type": "string" },
+            "frequency": { "$ref": "#/$defs/Unit" }
+          }
+        }
+      ]
+    },
+
+    "DigitalTwinMappingGroup": {
+      "type": "object",
+      "properties": {
+        "PhysicalAsset": { "type": "array", "items": { "$ref": "#/$defs/PhysicalAsset" } },
+        "DigitalReplica": { "type": "array", "items": { "$ref": "#/$defs/DigitalReplica" } },
+        "AssimilationBinding": { "type": "array", "items": { "$ref": "#/$defs/AssimilationBinding" } },
+        "SimulationBinding": { "type": "array", "items": { "$ref": "#/$defs/SimulationBinding" } },
+        "FeedbackControl": { "type": "array", "items": { "$ref": "#/$defs/FeedbackControl" } },
+        "StateVariable": { "type": "array", "items": { "$ref": "#/$defs/StateVariable" } },
+        "ObservationStream": { "type": "array", "items": { "$ref": "#/$defs/ObservationStream" } }
+      }
+    }
+
+  }
+}

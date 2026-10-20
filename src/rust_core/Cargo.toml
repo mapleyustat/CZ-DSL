@@ -1,0 +1,29 @@
+[package]
+name = "cz-dsl"
+version = "1.0.0"
+edition = "2021"
+description = "Coastal Zone Domain-Specific Language (CZ-DSL) - A unified language for coastal zone complex systems modeling"
+authors = ["CZ-DSL Team"]
+license = "Apache-2.0"
+repository = "https://github.com/cz-dsl/cz-dsl"
+keywords = ["coastal", "modeling", "dsl", "earth-science", "complex-systems"]
+categories = ["science", "simulation"]
+
+[dependencies]
+logos = "0.13"
+unicode-ident = "1.0"
+unicode-normalization = "0.1"
+thiserror = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+criterion = "0.5"
+
+[lib]
+name = "cz_dsl"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cz-dsl"
+path = "src/main.rs"

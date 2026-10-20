@@ -1,0 +1,1241 @@
+// 海洋ISO元数据案例 - Ocean ISO Metadata Case Study
+// 使用CZ-DSL描述基于ISO 19115-2标准的海洋模型输出元数据
+// Using CZ-DSL to describe ocean model output metadata based on ISO 19115-2 standard
+
+// ============================================================================
+// 第一部分：ISO 19115-2元数据标准定义 - Part 1: ISO 19115-2 Metadata Standard
+// ============================================================================
+
+// ISO 19115-2元数据根结构 - ISO 19115-2 Metadata Root Structure
+data ISO19115_Metadata {
+    // 文件标识符 - File identifier
+    fileIdentifier: String,
+    
+    // 语言和字符集 - Language and character set
+    language: LanguageCode with default "eng",
+    characterSet: CharacterSetCode with default "UTF8",
+    
+    // 层级级别 - Hierarchy level
+    hierarchyLevel: Array<ScopeCode>,  // e.g., ["dataset", "service"]
+    
+    // 联系信息 - Contact information
+    contact: Array<ResponsibleParty>,
+    
+    // 日期戳 - Date stamp
+    dateStamp: DateTime,
+    
+    // 元数据标准 - Metadata standard
+    metadataStandardName: String with default "ISO 19115-2 Geographic Information - Metadata Part 2",
+    metadataStandardVersion: String with default "ISO 19115-2:2009(E)",
+    
+    // 空间表示信息 - Spatial representation info
+    spatialRepresentationInfo: Array<SpatialRepresentation>,
+    
+    // 标识信息 - Identification info
+    identificationInfo: DataIdentification,
+    
+    // 数据质量信息 - Data quality info
+    dataQualityInfo: DataQuality,
+    
+    // 分发信息 - Distribution info
+    distributionInfo: Distribution
+}
+
+// 责任方信息 - Responsible Party Information
+data ResponsibleParty {
+    individualName: String,
+    organisationName: String,
+    positionName: String,
+    
+    contactInfo: ContactInfo,
+    role: RoleCode  // e.g., "pointOfContact", "principalInvestigator", "publisher"
+}
+
+data ContactInfo {
+    phone: PhoneInfo,
+    address: AddressInfo,
+    onlineResource: OnlineResource
+}
+
+data AddressInfo {
+    deliveryPoint: String,
+    city: String,
+    administrativeArea: String,
+    postalCode: String,
+    country: String,
+    electronicMailAddress: String
+}
+
+data OnlineResource {
+    linkage: URL,
+    protocol: String,  // e.g., "WWW:LINK", "OPeNDAP:OPeNDAP", "THREDDS:HTTP"
+    applicationProfile: String,
+    name: String,
+    description: String,
+    function: OnLineFunctionCode  // e.g., "information", "download", "search"
+}
+
+// 网格空间表示 - Grid Spatial Representation
+data GridSpatialRepresentation {
+    numberOfDimensions: Int32,
+    axisDimensionProperties: Array<Dimension>,
+    cellGeometry: CellGeometryCode,  // e.g., "area", "point"
+    transformationParameterAvailability: Bool
+}
+
+data Dimension {
+    dimensionName: DimensionNameTypeCode,  // e.g., "vertical", "temporal", "row", "column"
+    dimensionSize: Int32,
+    resolution: Measure  // 带单位的分辨率 - Resolution with unit
+}
+
+data Measure {
+    value: Real,
+    unit: String  // e.g., "meter", "minutes", "degree"
+}
+
+// 数据标识信息 - Data Identification Information
+data DataIdentification {
+    citation: Citation,
+    abstract: String,
+    purpose: String,
+    status: ProgressCode,  // e.g., "completed", "onGoing"
+    
+    // 空间和时间范围 - Spatial and temporal extent
+    extent: Extent,
+    
+    // 关键词 - Keywords
+    descriptiveKeywords: Array<Keywords>,
+    
+    // 资源约束 - Resource constraints
+    resourceConstraints: Array<Constraints>,
+    
+    // 空间分辨率 - Spatial resolution
+    spatialResolution: Array<Resolution>,
+    
+    // 语言 - Language
+    language: Array<LanguageCode>,
+    
+    // 主题类别 - Topic category
+    topicCategory: Array<TopicCategoryCode>,
+    
+    // 环境描述 - Environment description
+    environmentDescription: String,
+    
+    // 补充信息 - Supplemental information
+    supplementalInformation: String
+}
+
+data Citation {
+    title: String,
+    date: Array<CitationDate>,
+    identifier: Array<Identifier>,
+    citedResponsibleParty: Array<ResponsibleParty>
+}
+
+data CitationDate {
+    date: DateTime,
+    dateType: DateTypeCode  // e.g., "creation", "publication", "revision"
+}
+
+data Extent {
+    geographicExtent: GeographicExtent,
+    temporalExtent: TemporalExtent,
+    verticalExtent: VerticalExtent
+}
+
+data GeographicExtent {
+    westBoundLongitude: Real with unit degree,
+    eastBoundLongitude: Real with unit degree,
+    southBoundLatitude: Real with unit degree,
+    northBoundLatitude: Real with unit degree,
+    
+    // 边界框约束 - Bounding box constraint
+    constraint BoundingBox {
+        westBoundLongitude >= -180.0,
+        eastBoundLongitude <= 180.0,
+        southBoundLatitude >= -90.0,
+        northBoundLatitude <= 90.0,
+        westBoundLongitude < eastBoundLongitude,
+        southBoundLatitude < northBoundLatitude
+    }
+}
+
+data TemporalExtent {
+    beginPosition: DateTime,
+    endPosition: DateTime,
+    
+    constraint TemporalValidity {
+        beginPosition <= endPosition
+    }
+}
+
+data VerticalExtent {
+    minimumValue: Real with unit meter,
+    maximumValue: Real with unit meter,
+    verticalCRS: String  // 垂向坐标参考系统 - Vertical CRS
+}
+
+data Keywords {
+    keyword: Array<String>,
+    type: KeywordTypeCode,  // e.g., "theme", "place", "temporal"
+    thesaurusName: Citation
+}
+
+// ============================================================================
+// 第二部分：ACDD和CF约定集成 - Part 2: ACDD and CF Conventions Integration
+// ============================================================================
+
+// ACDD (Attribute Convention for Data Discovery) 元数据
+// ACDD (Attribute Convention for Data Discovery) Metadata
+data ACDDMetadata {
+    // 必需属性 - Required attributes
+    title: String,
+    summary: String,
+    keywords: String,
+    
+    // 创建者信息 - Creator information
+    creator_name: String,
+    creator_email: String,
+    creator_url: URL,
+    creator_institution: String,
+    
+    // 发布者信息 - Publisher information
+    publisher_name: String,
+    publisher_email: String,
+    publisher_url: URL,
+    
+    // 贡献者信息 - Contributor information
+    contributor_name: String,
+    contributor_role: String,
+    contributor_email: String,
+    contributor_url: URL,
+    contributor_institution: String,
+    
+    // 项目和机构 - Project and institution
+    project: String,
+    institution: String,
+    naming_authority: String,
+    
+    // 时间覆盖 - Time coverage
+    time_coverage_start: DateTime,
+    time_coverage_end: DateTime,
+    time_coverage_duration: String,  // ISO 8601 duration
+    time_coverage_resolution: String,
+    
+    // 地理覆盖 - Geographic coverage
+    geospatial_lat_min: Real with unit degree,
+    geospatial_lat_max: Real with unit degree,
+    geospatial_lon_min: Real with unit degree,
+    geospatial_lon_max: Real with unit degree,
+    geospatial_vertical_min: Real with unit meter,
+    geospatial_vertical_max: Real with unit meter,
+    geospatial_vertical_positive: String,  // "up" or "down"
+    
+    // 许可和约束 - License and constraints
+    license: String,
+    acknowledgement: String,
+    
+    // 标准和约定 - Standards and conventions
+    Conventions: String,  // e.g., "CF-1.6, SGRID-0.1, ACDD-1.3"
+    cdm_data_type: String,  // e.g., "Grid", "Station", "Trajectory"
+    
+    // 标识符 - Identifiers
+    id: String,
+    doi: String
+}
+
+// CF (Climate and Forecast) 约定变量属性
+// CF (Climate and Forecast) Convention Variable Attributes
+data CFVariableAttributes {
+    // 标准名称 - Standard name (from CF standard name table)
+    standard_name: String,
+    
+    // 长名称和单位 - Long name and units
+    long_name: String,
+    units: String,
+    
+    // 坐标系统 - Coordinate system
+    coordinates: String,
+    grid_mapping: String,
+    
+    // 缺失值和填充值 - Missing and fill values
+    missing_value: Real,
+    _FillValue: Real,
+    valid_min: Real,
+    valid_max: Real,
+    
+    // 比例和偏移 - Scale and offset
+    scale_factor: Real,
+    add_offset: Real,
+    
+    // 覆盖内容类型 - Coverage content type
+    coverage_content_type: String,  // e.g., "modelResult", "physicalMeasurement"
+    
+    // 显示控制 - Display control
+    display: Bool,
+    
+    // 网格关联 - Grid association
+    grid: String,
+    
+    // 单元方法 - Cell methods
+    cell_methods: String
+}
+
+// ============================================================================
+// 第三部分：NcML聚合和THREDDS集成 - Part 3: NcML Aggregation and THREDDS
+// ============================================================================
+
+// NcML (NetCDF Markup Language) 聚合定义
+// NcML (NetCDF Markup Language) Aggregation Definition
+data NcMLAggregation {
+    // 聚合类型 - Aggregation type
+    type: AggregationType,  // "joinExisting", "joinNew", "union"
+    
+    // 聚合维度 - Aggregation dimension
+    dimName: String,  // e.g., "ocean_time", "time"
+    
+    // 扫描配置 - Scan configuration
+    scan: ScanConfig,
+    
+    // 全局属性覆盖 - Global attribute overrides
+    attributes: Map<String, AttributeValue>,
+    
+    // 变量属性覆盖 - Variable attribute overrides
+    variables: Map<String, VariableAttributes>
+}
+
+data ScanConfig {
+    location: String,  // 扫描目录 - Scan directory
+    regExp: String,    // 正则表达式匹配文件 - Regular expression for file matching
+    subdirs: Bool,     // 是否扫描子目录 - Whether to scan subdirectories
+    olderThan: String  // 仅包含早于指定时间的文件 - Only include files older than
+}
+
+data AggregationType {
+    joinExisting: "Join along existing dimension",
+    joinNew: "Create new dimension for joining",
+    union: "Union of all variables"
+}
+
+// SGRID (Staggered Grid) 约定
+// SGRID (Staggered Grid) Convention
+data SGRIDTopology {
+    cf_role: String with value "grid_topology",
+    topology_dimension: Int32,
+    
+    // 节点维度 - Node dimensions
+    node_dimensions: String,  // e.g., "xi_psi eta_psi"
+    
+    // 面维度 - Face dimensions
+    face_dimensions: String,  // e.g., "xi_rho: xi_psi (padding: both) eta_rho: eta_psi (padding: both)"
+    
+    // 边维度 - Edge dimensions
+    edge1_dimensions: String,
+    edge2_dimensions: String,
+    
+    // 坐标 - Coordinates
+    node_coordinates: String,  // e.g., "lon_psi lat_psi"
+    face_coordinates: String,  // e.g., "lon_rho lat_rho"
+    edge1_coordinates: String,
+    edge2_coordinates: String,
+    
+    // 垂向维度 - Vertical dimensions
+    vertical_dimensions: String  // e.g., "s_rho: s_w (padding: none)"
+}
+
+// THREDDS数据服务 - THREDDS Data Services
+data THREDDSService {
+    // 服务类型 - Service types
+    services: Array<ServiceType>,
+    
+    // 数据集访问 - Dataset access
+    access: Array<DatasetAccess>
+}
+
+data ServiceType {
+    name: String,
+    serviceType: String,  // e.g., "OPeNDAP", "HTTPServer", "WMS", "WCS", "NetcdfSubset"
+    base: URL
+}
+
+data DatasetAccess {
+    serviceName: String,
+    urlPath: String,
+    dataFormat: String  // e.g., "NetCDF", "NetCDF-4"
+}
+
+// ============================================================================
+// 第四部分：元数据生成工作流 - Part 4: Metadata Generation Workflow
+// ============================================================================
+
+// NetCDF到ISO元数据转换过程 - NetCDF to ISO Metadata Conversion Process
+process NetCDF2ISOConversion {
+    inputs: {
+        netcdf_file: String,  // NetCDF文件路径或OPeNDAP URL
+        ncml_file: String,    // 可选的NcML增强文件
+        xsl_stylesheet: String  // XSL转换样式表
+    },
+    
+    outputs: {
+        iso_xml: String,  // ISO 19115-2 XML文件
+        metadata_score: Real  // 元数据质量评分
+    },
+    
+    // 转换步骤 - Conversion steps
+    steps: {
+        // 步骤1：读取NetCDF元数据 - Step 1: Read NetCDF metadata
+        step1_read_netcdf: {
+            description: "提取NetCDF全局属性和变量属性",
+            
+            global_attributes: extract_global_attributes(netcdf_file),
+            variable_attributes: extract_variable_attributes(netcdf_file),
+            dimensions: extract_dimensions(netcdf_file),
+            coordinate_variables: identify_coordinates(netcdf_file)
+        },
+        
+        // 步骤2：应用NcML增强 - Step 2: Apply NcML enhancements
+        step2_apply_ncml: {
+            description: "使用NcML文件覆盖或添加元数据",
+            
+            if ncml_file exists {
+                enhanced_metadata = merge_ncml_attributes(
+                    global_attributes,
+                    ncml_file
+                )
+            } else {
+                enhanced_metadata = global_attributes
+            }
+        },
+        
+        // 步骤3：映射到ISO 19115-2 - Step 3: Map to ISO 19115-2
+        step3_map_to_iso: {
+            description: "将NetCDF/ACDD属性映射到ISO元数据元素",
+            
+            // 文件标识符 - File identifier
+            fileIdentifier = generate_uuid() or enhanced_metadata.id,
+            
+            // 标识信息 - Identification info
+            title = enhanced_metadata.title,
+            abstract = enhanced_metadata.summary,
+            purpose = enhanced_metadata.purpose,
+            
+            // 责任方 - Responsible parties
+            creator = map_to_responsible_party(
+                name: enhanced_metadata.creator_name,
+                email: enhanced_metadata.creator_email,
+                url: enhanced_metadata.creator_url,
+                institution: enhanced_metadata.creator_institution,
+                role: "originator"
+            ),
+            
+            publisher = map_to_responsible_party(
+                name: enhanced_metadata.publisher_name,
+                email: enhanced_metadata.publisher_email,
+                url: enhanced_metadata.publisher_url,
+                role: "publisher"
+            ),
+            
+            contributor = map_to_responsible_party(
+                name: enhanced_metadata.contributor_name,
+                email: enhanced_metadata.contributor_email,
+                url: enhanced_metadata.contributor_url,
+                institution: enhanced_metadata.contributor_institution,
+                role: enhanced_metadata.contributor_role
+            ),
+            
+            // 空间范围 - Spatial extent
+            geographicExtent = GeographicExtent {
+                westBoundLongitude: enhanced_metadata.geospatial_lon_min,
+                eastBoundLongitude: enhanced_metadata.geospatial_lon_max,
+                southBoundLatitude: enhanced_metadata.geospatial_lat_min,
+                northBoundLatitude: enhanced_metadata.geospatial_lat_max
+            },
+            
+            // 时间范围 - Temporal extent
+            temporalExtent = TemporalExtent {
+                beginPosition: enhanced_metadata.time_coverage_start,
+                endPosition: enhanced_metadata.time_coverage_end
+            },
+            
+            // 垂向范围 - Vertical extent
+            verticalExtent = VerticalExtent {
+                minimumValue: enhanced_metadata.geospatial_vertical_min,
+                maximumValue: enhanced_metadata.geospatial_vertical_max,
+                verticalCRS: "EPSG:5829"  // Mean Sea Level
+            },
+            
+            // 空间表示 - Spatial representation
+            spatialRepresentation = map_dimensions_to_grid(dimensions),
+            
+            // 关键词 - Keywords
+            keywords = parse_keywords(enhanced_metadata.keywords),
+            
+            // 约束 - Constraints
+            license = enhanced_metadata.license,
+            acknowledgement = enhanced_metadata.acknowledgement
+        },
+        
+        // 步骤4：应用XSL转换 - Step 4: Apply XSL transformation
+        step4_xsl_transform: {
+            description: "使用自定义XSL样式表生成ISO XML",
+            
+            iso_xml = xslt_transform(
+                source: step3_map_to_iso,
+                stylesheet: xsl_stylesheet,
+                output_format: "ISO 19115-2"
+            )
+        },
+        
+        // 步骤5：验证和评分 - Step 5: Validate and score
+        step5_validate: {
+            description: "验证ISO XML并计算元数据质量评分",
+            
+            validation_result = validate_iso_schema(iso_xml),
+            metadata_score = calculate_metadata_score(iso_xml)
+        }
+    },
+    
+    // 质量约束 - Quality constraints
+    constraint MetadataCompleteness {
+        // 必需元素检查 - Required elements check
+        iso_xml.fileIdentifier != null,
+        iso_xml.contact.length > 0,
+        iso_xml.identificationInfo.citation.title != null,
+        iso_xml.identificationInfo.abstract != null,
+        iso_xml.identificationInfo.extent != null,
+        
+        // 元数据评分阈值 - Metadata score threshold
+        metadata_score >= 0.7  // 至少70分 - At least 70 points
+    }
+}
+
+// 元数据质量评分系统 - Metadata Quality Scoring System
+process MetadataQualityAssessment {
+    inputs: {
+        iso_metadata: ISO19115_Metadata
+    },
+    
+    outputs: {
+        overall_score: Real,  // 总分 0-100
+        component_scores: Map<String, Real>,
+        recommendations: Array<String>
+    },
+    
+    // 评分组件 - Scoring components
+    scoring_criteria: {
+        // 1. 标识信息完整性 (30分) - Identification completeness (30 points)
+        identification_score: {
+            title: 5 * points if exists,
+            abstract: 10 * points if exists and length > 100,
+            purpose: 5 * points if exists,
+            keywords: 5 * points if count >= 5,
+            topic_category: 5 * points if exists
+        },
+        
+        // 2. 责任方信息 (20分) - Responsible party info (20 points)
+        contact_score: {
+            creator: 7 * points if complete_contact_info,
+            publisher: 7 * points if complete_contact_info,
+            contributor: 6 * points if exists
+        },
+        
+        // 3. 空间时间范围 (25分) - Spatial-temporal extent (25 points)
+        extent_score: {
+            geographic_extent: 10 * points if valid_bounding_box,
+            temporal_extent: 10 * points if valid_time_range,
+            vertical_extent: 5 * points if exists
+        },
+        
+        // 4. 数据质量和谱系 (15分) - Data quality and lineage (15 points)
+        quality_score: {
+            lineage: 10 * points if exists and detailed,
+            quality_measures: 5 * points if exists
+        },
+        
+        // 5. 分发和访问 (10分) - Distribution and access (10 points)
+        distribution_score: {
+            online_resource: 5 * points if exists,
+            format: 3 * points if specified,
+            transfer_options: 2 * points if exists
+        }
+    },
+    
+    // 计算总分 - Calculate overall score
+    method calculate_score(): Real {
+        overall_score = 
+            identification_score + 
+            contact_score + 
+            extent_score + 
+            quality_score + 
+            distribution_score,
+        
+        return overall_score
+    },
+    
+    // 生成改进建议 - Generate recommendations
+    method generate_recommendations(): Array<String> {
+        recommendations = [],
+        
+        if identification_score < 25 {
+            recommendations.append("添加更详细的摘要和关键词")
+        },
+        
+        if contact_score < 15 {
+            recommendations.append("补充完整的联系信息，包括邮箱和URL")
+        },
+        
+        if extent_score < 20 {
+            recommendations.append("确保空间和时间范围信息完整准确")
+        },
+        
+        if quality_score < 10 {
+            recommendations.append("添加数据谱系和质量评估信息")
+        },
+        
+        if distribution_score < 7 {
+            recommendations.append("提供在线访问链接和数据格式说明")
+        },
+        
+        return recommendations
+    }
+}
+
+// ============================================================================
+// 第五部分：实际应用案例 - Part 5: Real-World Application Case
+// ============================================================================
+
+// USGS Barnegat Bay水动力模型元数据案例
+// USGS Barnegat Bay Hydrodynamic Model Metadata Case
+scenario USGSBarnegatBayMetadata {
+    description: "USGS Barnegat Bay 2012年3-9月水动力模型ISO元数据",
+    
+    // 基础元数据 - Basic metadata
+    metadata: ISO19115_Metadata {
+        fileIdentifier: "59f8af92e4b063d5d309f043",
+        language: "eng",
+        characterSet: "UTF8",
+        hierarchyLevel: ["dataset", "service"],
+        
+        // 联系人 - Contact
+        contact: [
+            ResponsibleParty {
+                individualName: "Zafer Defne",
+                organisationName: "U.S. Geological Survey",
+                contactInfo: ContactInfo {
+                    address: AddressInfo {
+                        electronicMailAddress: "zdefne@usgs.gov"
+                    },
+                    onlineResource: OnlineResource {
+                        linkage: "https://www.usgs.gov/staff-profiles/zafer-defne",
+                        protocol: "WWW:LINK",
+                        function: "information"
+                    }
+                },
+                role: "pointOfContact"
+            }
+        ],
+        
+        dateStamp: DateTime("2017-12-01"),
+        
+        // 空间表示 - Spatial representation
+        spatialRepresentationInfo: [
+            GridSpatialRepresentation {
+                numberOfDimensions: 2,
+                axisDimensionProperties: [
+                    Dimension {
+                        dimensionName: "vertical",
+                        dimensionSize: 7,
+                        resolution: Measure {
+                            value: 0.01,
+                            unit: "meter"
+                        }
+                    },
+                    Dimension {
+                        dimensionName: "temporal",
+                        dimensionSize: 10272,
+                        resolution: Measure {
+                            value: 30,
+                            unit: "minutes"
+                        }
+                    }
+                ],
+                cellGeometry: "area"
+            }
+        ],
+        
+        // 数据标识 - Data identification
+        identificationInfo: DataIdentification {
+            citation: Citation {
+                title: "USGS Barnegat Bay Hydrodynamic Model for March-September 2012",
+                date: [
+                    CitationDate {
+                        date: DateTime("2015-04-01"),
+                        dateType: "creation"
+                    },
+                    CitationDate {
+                        date: DateTime("2017-12-01"),
+                        dateType: "publication"
+                    }
+                ]
+            },
+            
+            abstract: "
+                The Coupled Ocean-Atmosphere-Wave-Sediment Transport (COAWST) model 
+                was used to simulate hydrodynamics in Barnegat Bay, New Jersey for 
+                March through September 2012. The model domain includes the entire 
+                Barnegat Bay-Little Egg Harbor estuary system with high resolution 
+                in marsh creek networks. Model outputs include water levels, currents, 
+                temperature, salinity, and sediment concentrations at 30-minute intervals.
+            ",
+            
+            purpose: "
+                To understand circulation patterns, residence times, and sediment 
+                transport in Barnegat Bay estuary, particularly in response to 
+                tidal forcing, wind events, and freshwater inputs.
+            ",
+            
+            extent: Extent {
+                geographicExtent: GeographicExtent {
+                    westBoundLongitude: -74.3 with unit degree,
+                    eastBoundLongitude: -74.0 with unit degree,
+                    southBoundLatitude: 39.5 with unit degree,
+                    northBoundLatitude: 40.0 with unit degree
+                },
+                
+                temporalExtent: TemporalExtent {
+                    beginPosition: DateTime("2012-03-01T00:00:00Z"),
+                    endPosition: DateTime("2012-09-30T23:30:00Z")
+                },
+                
+                verticalExtent: VerticalExtent {
+                    minimumValue: -5.0 with unit meter,
+                    maximumValue: 2.0 with unit meter,
+                    verticalCRS: "Mean Sea Level"
+                }
+            },
+            
+            descriptiveKeywords: [
+                Keywords {
+                    keyword: [
+                        "Ocean General Circulation Models",
+                        "Regional Ocean Models",
+                        "COAWST",
+                        "ROMS",
+                        "Barnegat Bay",
+                        "New Jersey",
+                        "Hydrodynamics",
+                        "Estuarine Circulation"
+                    ],
+                    type: "theme"
+                },
+                Keywords {
+                    keyword: [
+                        "Barnegat Bay",
+                        "Little Egg Harbor",
+                        "New Jersey",
+                        "Atlantic Coast"
+                    ],
+                    type: "place"
+                }
+            ]
+        }
+    },
+    
+    // ACDD元数据 - ACDD metadata
+    acdd_metadata: ACDDMetadata {
+        title: "USGS Barnegat Bay Hydrodynamic Model for March-September 2012",
+        summary: "COAWST model simulation of Barnegat Bay hydrodynamics",
+        keywords: "COAWST, ROMS, hydrodynamics, Barnegat Bay, estuary",
+        
+        creator_name: "Zafer Defne",
+        creator_email: "zdefne@usgs.gov",
+        creator_url: "https://www.usgs.gov/staff-profiles/zafer-defne",
+        creator_institution: "U.S. Geological Survey, Woods Hole Coastal and Marine Science Center",
+        
+        publisher_name: "U.S. Geological Survey - ScienceBase",
+        publisher_email: "sciencebase@usgs.gov",
+        publisher_url: "https://www.sciencebase.gov",
+        
+        institution: "U.S. Geological Survey, Woods Hole Coastal and Marine Science Center",
+        naming_authority: "gov.usgs.cmgp.whsc",
+        
+        time_coverage_start: DateTime("2012-03-01T00:00:00Z"),
+        time_coverage_end: DateTime("2012-09-30T23:30:00Z"),
+        time_coverage_resolution: "PT30M",  // 30 minutes
+        
+        geospatial_lat_min: 39.5 with unit degree,
+        geospatial_lat_max: 40.0 with unit degree,
+        geospatial_lon_min: -74.3 with unit degree,
+        geospatial_lon_max: -74.0 with unit degree,
+        geospatial_vertical_min: -5.0 with unit meter,
+        geospatial_vertical_max: 2.0 with unit meter,
+        geospatial_vertical_positive: "up",
+        
+        license: "Public Domain - USGS",
+        acknowledgement: "USGS Coastal and Marine Hazards and Resources Program",
+        
+        Conventions: "CF-1.6, SGRID-0.1, ACDD-1.3",
+        cdm_data_type: "Grid",
+        id: "USGS_BBLEH_2012"
+    }
+}
+
+// NcML聚合配置 - NcML Aggregation Configuration
+data BarnegatBayNcML {
+    aggregation: NcMLAggregation {
+        type: "joinExisting",
+        dimName: "ocean_time",
+        
+        scan: ScanConfig {
+            location: "Output/",
+            regExp: ".*ocean_his_.*\\.nc$",
+            subdirs: false
+        },
+        
+        attributes: {
+            "Conventions": "CF-1.6, SGRID-0.1, ACDD-1.3",
+            "cdm_data_type": "Grid",
+            "title": "USGS Barnegat Bay Hydrodynamic Model",
+            "institution": "U.S. Geological Survey"
+        },
+        
+        variables: {
+            "zeta": CFVariableAttributes {
+                standard_name: "sea_surface_height_above_geopotential_datum",
+                long_name: "Sea surface height",
+                units: "meter",
+                grid: "grid",
+                display: true,
+                coverage_content_type: "modelResult"
+            },
+            
+            "temp": CFVariableAttributes {
+                standard_name: "sea_water_potential_temperature",
+                long_name: "Potential temperature",
+                units: "Celsius",
+                grid: "grid",
+                display: true,
+                coverage_content_type: "modelResult"
+            },
+            
+            "salt": CFVariableAttributes {
+                standard_name: "sea_water_salinity",
+                long_name: "Salinity",
+                units: "PSU",
+                grid: "grid",
+                display: true,
+                coverage_content_type: "modelResult"
+            },
+            
+            "u": CFVariableAttributes {
+                standard_name: "sea_water_x_velocity",
+                long_name: "u-momentum component",
+                units: "meter second-1",
+                grid: "grid",
+                display: true,
+                coverage_content_type: "modelResult"
+            },
+            
+            "v": CFVariableAttributes {
+                standard_name: "sea_water_y_velocity",
+                long_name: "v-momentum component",
+                units: "meter second-1",
+                grid: "grid",
+                display: true,
+                coverage_content_type: "modelResult"
+            }
+        }
+    },
+    
+    // SGRID拓扑 - SGRID topology
+    grid_topology: SGRIDTopology {
+        cf_role: "grid_topology",
+        topology_dimension: 2,
+        node_dimensions: "xi_psi eta_psi",
+        face_dimensions: "xi_rho: xi_psi (padding: both) eta_rho: eta_psi (padding: both)",
+        edge1_dimensions: "xi_u: xi_psi eta_u: eta_psi (padding: both)",
+        edge2_dimensions: "xi_v: xi_psi (padding: both) eta_v: eta_psi",
+        node_coordinates: "lon_psi lat_psi",
+        face_coordinates: "lon_rho lat_rho",
+        edge1_coordinates: "lon_u lat_u",
+        edge2_coordinates: "lon_v lat_v",
+        vertical_dimensions: "s_rho: s_w (padding: none)"
+    }
+}
+
+// THREDDS数据服务配置 - THREDDS Data Service Configuration
+data BarnegatBayTHREDDS {
+    services: THREDDSService {
+        services: [
+            ServiceType {
+                name: "odap",
+                serviceType: "OPeNDAP",
+                base: "https://geoport.usgs.esipfed.org/thredds/dodsC/"
+            },
+            ServiceType {
+                name: "http",
+                serviceType: "HTTPServer",
+                base: "https://geoport.usgs.esipfed.org/thredds/fileServer/"
+            },
+            ServiceType {
+                name: "wms",
+                serviceType: "WMS",
+                base: "https://geoport.usgs.esipfed.org/thredds/wms/"
+            },
+            ServiceType {
+                name: "ncss",
+                serviceType: "NetcdfSubset",
+                base: "https://geoport.usgs.esipfed.org/thredds/ncss/"
+            }
+        ],
+        
+        access: [
+            DatasetAccess {
+                serviceName: "odap",
+                urlPath: "sand/usgs/Projects/BBLEH/run071tRX/00_dir_roms.ncml",
+                dataFormat: "NetCDF"
+            },
+            DatasetAccess {
+                serviceName: "http",
+                urlPath: "sand/usgs/Projects/BBLEH/run071tRX/00_dir_roms.ncml",
+                dataFormat: "NetCDF"
+            }
+        ]
+    }
+}
+
+// ============================================================================
+// 第六部分：完整元数据发布工作流 - Part 6: Complete Metadata Publishing Workflow
+// ============================================================================
+
+// 海洋模型输出元数据发布工作流
+// Ocean Model Output Metadata Publishing Workflow
+workflow OceanModelMetadataPublishing {
+    description: "从NetCDF模型输出到ISO元数据发布的完整工作流",
+    
+    inputs: {
+        model_output_directory: String,
+        ncml_template: String,
+        xsl_stylesheet: String,
+        thredds_catalog: String
+    },
+    
+    outputs: {
+        iso_metadata_xml: String,
+        metadata_score_report: String,
+        thredds_catalog_updated: String
+    },
+    
+    pipeline: {
+        // 阶段1：NetCDF文件聚合 - Stage 1: NetCDF file aggregation
+        stage1_aggregate: {
+            description: "使用NcML聚合多个NetCDF输出文件",
+            
+            // 扫描模型输出目录 - Scan model output directory
+            netcdf_files = scan_directory(
+                path: model_output_directory,
+                pattern: ".*\\.nc$"
+            ),
+            
+            // 创建NcML聚合 - Create NcML aggregation
+            ncml_aggregation = create_ncml_aggregation(
+                files: netcdf_files,
+                template: ncml_template,
+                dimension: "ocean_time",
+                type: "joinExisting"
+            ),
+            
+            // 验证聚合 - Validate aggregation
+            validation = validate_ncml(ncml_aggregation),
+            
+            output: ncml_aggregation
+        },
+        
+        // 阶段2：增强ACDD元数据 - Stage 2: Enhance ACDD metadata
+        stage2_enhance_acdd: {
+            description: "添加或更新ACDD约定属性",
+            
+            // 读取现有全局属性 - Read existing global attributes
+            existing_attrs = read_global_attributes(ncml_aggregation),
+            
+            // 补充必需的ACDD属性 - Supplement required ACDD attributes
+            enhanced_attrs = enhance_acdd_attributes(
+                existing: existing_attrs,
+                required_fields: [
+                    "title", "summary", "keywords",
+                    "creator_name", "creator_email", "creator_institution",
+                    "publisher_name", "publisher_email",
+                    "time_coverage_start", "time_coverage_end",
+                    "geospatial_lat_min", "geospatial_lat_max",
+                    "geospatial_lon_min", "geospatial_lon_max",
+                    "license", "Conventions"
+                ]
+            ),
+            
+            // 更新NcML - Update NcML
+            ncml_enhanced = update_ncml_attributes(
+                ncml_aggregation,
+                enhanced_attrs
+            ),
+            
+            output: ncml_enhanced
+        },
+        
+        // 阶段3：生成ISO元数据 - Stage 3: Generate ISO metadata
+        stage3_generate_iso: {
+            description: "使用ncISO工具生成ISO 19115-2 XML",
+            
+            // 运行ncISO转换 - Run ncISO conversion
+            iso_xml = NetCDF2ISOConversion.execute(
+                netcdf_file: ncml_enhanced,
+                xsl_stylesheet: xsl_stylesheet
+            ),
+            
+            // 验证ISO XML - Validate ISO XML
+            validation = validate_iso_schema(iso_xml),
+            
+            output: iso_xml
+        },
+        
+        // 阶段4：元数据质量评估 - Stage 4: Metadata quality assessment
+        stage4_assess_quality: {
+            description: "评估元数据完整性和质量",
+            
+            // 解析ISO XML - Parse ISO XML
+            iso_metadata = parse_iso_xml(iso_xml),
+            
+            // 计算质量评分 - Calculate quality score
+            quality_assessment = MetadataQualityAssessment.execute(
+                iso_metadata: iso_metadata
+            ),
+            
+            // 生成评分报告 - Generate score report
+            score_report = generate_score_report(
+                overall_score: quality_assessment.overall_score,
+                component_scores: quality_assessment.component_scores,
+                recommendations: quality_assessment.recommendations
+            ),
+            
+            // 质量检查 - Quality check
+            if quality_assessment.overall_score < 70 {
+                warning("元数据质量评分低于70分，建议改进"),
+                log_recommendations(quality_assessment.recommendations)
+            },
+            
+            output: score_report
+        },
+        
+        // 阶段5：发布到THREDDS - Stage 5: Publish to THREDDS
+        stage5_publish_thredds: {
+            description: "更新THREDDS目录并发布数据服务",
+            
+            // 创建THREDDS数据集条目 - Create THREDDS dataset entry
+            dataset_entry = create_thredds_dataset(
+                name: enhanced_attrs.title,
+                urlPath: generate_url_path(ncml_enhanced),
+                metadata_url: iso_xml,
+                services: ["OPeNDAP", "HTTPServer", "WMS", "NetcdfSubset"]
+            ),
+            
+            // 更新THREDDS目录 - Update THREDDS catalog
+            updated_catalog = update_thredds_catalog(
+                catalog: thredds_catalog,
+                dataset: dataset_entry
+            ),
+            
+            // 验证目录 - Validate catalog
+            catalog_validation = validate_thredds_catalog(updated_catalog),
+            
+            output: updated_catalog
+        },
+        
+        // 阶段6：注册到数据目录 - Stage 6: Register to data catalog
+        stage6_register: {
+            description: "注册元数据到ScienceBase或其他数据目录",
+            
+            // 准备注册信息 - Prepare registration info
+            registration_info = {
+                title: enhanced_attrs.title,
+                abstract: enhanced_attrs.summary,
+                keywords: enhanced_attrs.keywords,
+                spatial_extent: extract_spatial_extent(iso_metadata),
+                temporal_extent: extract_temporal_extent(iso_metadata),
+                contacts: extract_contacts(iso_metadata),
+                online_links: [
+                    {
+                        url: generate_opendap_url(ncml_enhanced),
+                        type: "OPeNDAP",
+                        description: "Direct data access via OPeNDAP"
+                    },
+                    {
+                        url: iso_xml,
+                        type: "ISO 19115-2",
+                        description: "ISO metadata XML"
+                    }
+                ]
+            },
+            
+            // 提交到ScienceBase - Submit to ScienceBase
+            sciencebase_item = register_to_sciencebase(registration_info),
+            
+            output: sciencebase_item
+        }
+    },
+    
+    // 数据流 - Dataflow
+    dataflow: {
+        model_output_directory → stage1_aggregate → ncml_aggregation,
+        ncml_aggregation → stage2_enhance_acdd → ncml_enhanced,
+        ncml_enhanced → stage3_generate_iso → iso_xml,
+        iso_xml → stage4_assess_quality → score_report,
+        [ncml_enhanced, iso_xml] → stage5_publish_thredds → updated_catalog,
+        iso_xml → stage6_register → sciencebase_item
+    },
+    
+    // 输出汇总 - Output summary
+    outputs: {
+        iso_metadata_xml: iso_xml,
+        metadata_score_report: score_report,
+        thredds_catalog_updated: updated_catalog,
+        sciencebase_item_id: sciencebase_item.id
+    }
+}
+
+// ============================================================================
+// 第七部分：主执行函数 - Part 7: Main Execution Function
+// ============================================================================
+
+// 主执行函数 - Main execution function
+fn main() {
+    println!("海洋ISO元数据工作流 - Ocean ISO Metadata Workflow")
+    println!("=" * 70)
+    
+    // 案例1：USGS Barnegat Bay模型元数据生成
+    // Case 1: USGS Barnegat Bay model metadata generation
+    println!("\n案例1: USGS Barnegat Bay水动力模型")
+    println!("Case 1: USGS Barnegat Bay Hydrodynamic Model")
+    
+    let barnegat_workflow = OceanModelMetadataPublishing {
+        model_output_directory: "/data/BBLEH/run071tRX/Output/",
+        ncml_template: "templates/roms_ncml_template.xml",
+        xsl_stylesheet: "XSL/UnidataDD2MI_cur.xsl",
+        thredds_catalog: "catalog/bbleh_catalog.xml"
+    }
+    
+    // 执行工作流 - Execute workflow
+    let results = barnegat_workflow.execute()
+    
+    // 输出结果 - Output results
+    println!("\n工作流执行完成 - Workflow execution completed")
+    println!("ISO元数据文件: {}", results.iso_metadata_xml)
+    println!("元数据质量评分: {}", results.metadata_score_report)
+    println!("THREDDS目录已更新: {}", results.thredds_catalog_updated)
+    
+    // 显示元数据质量评分 - Display metadata quality score
+    let quality = MetadataQualityAssessment.execute(
+        iso_metadata: parse_iso_xml(results.iso_metadata_xml)
+    )
+    
+    println!("\n元数据质量评估 - Metadata Quality Assessment")
+    println!("-" * 70)
+    println!("总分 Overall Score: {}/100", quality.overall_score)
+    println!("\n组件评分 Component Scores:")
+    for (component, score) in quality.component_scores {
+        println!("  {}: {}", component, score)
+    }
+    
+    if quality.recommendations.length > 0 {
+        println!("\n改进建议 Recommendations:")
+        for recommendation in quality.recommendations {
+            println!("  • {}", recommendation)
+        }
+    }
+    
+    // 案例2：Delaware Bay盐度入侵模型
+    // Case 2: Delaware Bay salinity intrusion model
+    println!("\n\n案例2: Delaware Bay盐度入侵模型")
+    println!("Case 2: Delaware Bay Salinity Intrusion Model")
+    
+    let delaware_metadata = ACDDMetadata {
+        title: "USGS COAWST: Salinity intrusion in Delaware Bay (2019)",
+        summary: "
+            Three-dimensional hydrodynamic model simulation to study salinity 
+            intrusion mechanisms in Delaware Bay estuary using COAWST modeling system.
+        ",
+        keywords: "COAWST, ROMS, salinity, Delaware Bay, estuary, salt front",
+        
+        creator_name: "Salme E Cook",
+        creator_email: "secook@usgs.gov",
+        creator_url: "https://www.usgs.gov/staff-profiles/salme-cook",
+        creator_institution: "U.S. Geological Survey, Woods Hole Coastal and Marine Science Center",
+        
+        publisher_name: "U.S. Geological Survey - ScienceBase",
+        publisher_email: "sciencebase@usgs.gov",
+        publisher_url: "https://www.sciencebase.gov/catalog/item/5d05a22ae4b0e3d3115bd27c",
+        
+        contributor_name: "John Warner",
+        contributor_role: "principalInvestigator",
+        contributor_email: "jcwarner@usgs.gov",
+        contributor_url: "https://www.usgs.gov/staff-profiles/john-warner",
+        contributor_institution: "U.S. Geological Survey, Woods Hole Coastal and Marine Science Center",
+        
+        institution: "U.S. Geological Survey, Woods Hole Coastal and Marine Science Center",
+        naming_authority: "gov.usgs.cmgp.whsc",
+        project: "Delaware River Master Salinity Study",
+        
+        time_coverage_start: DateTime("2019-01-01T00:00:00Z"),
+        time_coverage_end: DateTime("2019-12-31T23:00:00Z"),
+        time_coverage_resolution: "PT1H",  // 1 hour
+        
+        geospatial_lat_min: 38.8 with unit degree,
+        geospatial_lat_max: 39.9 with unit degree,
+        geospatial_lon_min: -75.6 with unit degree,
+        geospatial_lon_max: -74.8 with unit degree,
+        geospatial_vertical_min: -15.0 with unit meter,
+        geospatial_vertical_max: 2.0 with unit meter,
+        geospatial_vertical_positive: "up",
+        
+        license: "Public Domain - USGS",
+        acknowledgement: "
+            Office of Delaware River Master Salinity Study and USGS Coastal 
+            Marine Hazards and Resources Program. Computational support by 
+            WHOI High-Performance Computing Facility (Poseidon).
+        ",
+        
+        Conventions: "CF-1.6, SGRID-0.1, ACDD-1.3",
+        cdm_data_type: "Grid",
+        id: "USGS_COAWST_DELAWARE_BAY_TIDE_SUBTIDAL"
+    }
+    
+    // 转换为ISO元数据 - Convert to ISO metadata
+    let delaware_iso = NetCDF2ISOConversion.execute(
+        netcdf_file: "delaware_bay_2019.ncml",
+        ncml_file: "delaware_bay_ncml_enhanced.xml",
+        xsl_stylesheet: "XSL/UnidataDD2MI_cur.xsl"
+    )
+    
+    println!("Delaware Bay ISO元数据已生成")
+    println!("Delaware Bay ISO metadata generated")
+    
+    // 总结 - Summary
+    println!("\n" + "=" * 70)
+    println!("海洋ISO元数据工作流演示完成")
+    println!("Ocean ISO Metadata Workflow Demonstration Completed")
+    println!("=" * 70)
+    
+    println!("\n关键特性 Key Features:")
+    println!("✓ ISO 19115-2标准元数据结构")
+    println!("✓ ACDD和CF约定集成")
+    println!("✓ NcML聚合和THREDDS服务")
+    println!("✓ 自动化元数据质量评估")
+    println!("✓ 完整的发布工作流")
+    println!("✓ 物理单位类型检查")
+    
+    println!("\n应用场景 Application Scenarios:")
+    println!("• 海洋模型输出元数据标准化")
+    println!("• 数据发现和互操作性")
+    println!("• THREDDS数据服务发布")
+    println!("• 元数据质量控制和改进")
+    println!("• 数据目录注册和管理")
+}
